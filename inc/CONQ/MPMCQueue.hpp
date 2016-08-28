@@ -24,7 +24,7 @@ public:
         while(this->dequeue(output));
         listNode* front = _head.load(std::memory_order_relaxed);
         delete front;
-        garbageCollect();
+        for (listNode *front = freeListTryDequeue(); front != nullptr; front = freeListTryDequeue()) delete front;
         front = _freeListHead.load(std::memory_order_relaxed);
         delete front;
     }
@@ -61,19 +61,6 @@ public:
     
     bool empty(){
         return !(_tail.load(std::memory_order_relaxed)->next.load(std::memory_order_acquire));
-    }
-        
-    //default value of 0 garbage collects the maximum possible
-    void garbageCollect(size_t max = 0){
-        if (max == 0){
-            for (listNode *front = freeListTryDequeue(); front != nullptr; front = freeListTryDequeue()) delete front;
-        }
-        else{
-            for (listNode *front = freeListTryDequeue(); front != nullptr && max > 0; front = freeListTryDequeue()){
-                delete front;
-                --max;
-            }
-        }
     }
     
 private:    
