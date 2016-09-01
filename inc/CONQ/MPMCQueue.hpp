@@ -9,6 +9,8 @@
 
 #include <atomic>
 #include <thread>
+#include <mutex>
+#include <condition_variable>
 
 namespace CONQ{
 
@@ -16,12 +18,12 @@ template<typename T>
 class MPMCQueue{
 public:
     MPMCQueue(){
-        _spinner.clear();
+        _freeListTail.store(_freeListHead.load(std::memory_order_relaxed), std::memory_order_relaxed);
     }
     
     ~MPMCQueue(){
         T output;
-        while(this->dequeue(output));
+        while(this->scDequeue(output));
         listNode* front = _head.load(std::memory_order_relaxed);
         delete front;
         for (listNode *front = freeListTryDequeue(); front != nullptr; front = freeListTryDequeue()) delete front;
@@ -29,34 +31,45 @@ public:
         delete front;
     }
     
-    void enqueue(const T& input){
-        listNode *node  = freeListTryDequeue();
-        if (!node){
-            node = new listNode{input};
-        }
-        else{
-            node->data = input;
-            node->next.store(nullptr, std::memory_order_relaxed);
-        }
+    void spEnqueue(const T& input){
+        listNode *node  = acquireOrAllocate(input);
+        _head.load(std::memory_order_relaxed)->next.store(node, std::memory_order_release);
+        _head.store(node, std::memory_order_relaxed);
+    }
+    
+    void mpEnqueue(const T& input){
+        listNode *node  = acquireOrAllocate(input);
         listNode* prev_head = _head.exchange(node, std::memory_order_acq_rel);
         prev_head->next.store(node, std::memory_order_release);
     }
-
-    bool dequeue(T& output){
-        while (_spinner.test_and_set(std::memory_order_acquire)){
-            std::this_thread::yield();
-        }
+    
+    bool scDequeue(T& output){
         listNode* tail = _tail.load(std::memory_order_relaxed);
         listNode* next = tail->next.load(std::memory_order_acquire);
         if (next == nullptr){
-            _spinner.clear(std::memory_order_release);
             return false;
         }
         output = next->data;
         _tail.store(next, std::memory_order_release);
         freeListEnqueue(tail);
-        _spinner.clear(std::memory_order_release);
         return true;
+    }
+    
+    bool mcDequeue(T& output){
+        listNode *tail = _tail.exchange(nullptr, std::memory_order_acq_rel);
+        while (!tail){
+            std::this_thread::yield();
+            tail = _tail.exchange(nullptr, std::memory_order_acq_rel);
+        }
+        listNode *next = tail->next.load(std::memory_order_acquire);
+        if (next == nullptr){
+            _tail.exchange(tail, std::memory_order_acq_rel);
+            return false;
+        }
+        output = next->data;
+        _tail.store(next, std::memory_order_release);
+        freeListEnqueue(tail);
+        return true;        
     }
     
     bool empty(){
@@ -82,15 +95,24 @@ private:
         }
         return nullptr;
     }
-
+    
+    inline listNode *acquireOrAllocate(const T& input){
+        listNode *node  = freeListTryDequeue();
+        if (!node){
+            node = new listNode{input};
+        }
+        else{
+            node->data = input;
+            node->next.store(nullptr, std::memory_order_relaxed);
+        }
+        return node;
+    }
+    
     std::atomic<listNode*> _head{new listNode};
-    char _padding_0[64];
+    std::atomic<listNode*> _freeListTail;
+    char padding[64];
     std::atomic<listNode*> _tail{_head.load(std::memory_order_relaxed)};
     std::atomic<listNode*> _freeListHead{new listNode};
-    char _padding_1[64];
-    std::atomic<listNode*> _freeListTail{_freeListHead.load(std::memory_order_relaxed)};
-    char _padding_2[64];
-    std::atomic_flag _spinner;
     MPMCQueue(const MPMCQueue&) {}
     void operator=(const MPMCQueue&) {}
 };
