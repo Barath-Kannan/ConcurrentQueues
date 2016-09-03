@@ -11,8 +11,6 @@
 #include <gtest/gtest.h>
 #include <CONQ/MPMCQueue.hpp>
 #include <CONQ/BoundedMPMCQueue.hpp>
-#include <thread>
-#include <mutex>
 #include "BasicTimer.h"
 
 struct TestParameters{
