@@ -10,19 +10,31 @@
 
 #include <gtest/gtest.h>
 #include <CONQ/MPMCQueue.hpp>
+#include <CONQ/BoundedMPMCQueue.hpp>
 #include <thread>
 #include <mutex>
 #include "BasicTimer.h"
 
-class MPMCQueueTest : public testing::Test{
+struct TestParameters{
+    uint32_t nReaders;
+    uint32_t nWriters;
+    uint32_t nElements;
+};
+
+class QueueTest : public testing::Test, 
+        public testing::WithParamInterface< ::testing::tuple<uint32_t, uint32_t, uint32_t> >{
 public:
     virtual void SetUp();
     virtual void TearDown();
 protected:
-    BasicTimer bt1;
-    BasicTimer bt2;
-    std::mutex _writeMutex;
+    std::vector<BasicTimer> readers;
+    std::vector<BasicTimer> writers;
+    TestParameters _params;
+    char padding0[64];
+    CONQ::MPMCQueue<uint64_t> q;
+    char padding1[64];
+    CONQ::BoundedMPMCQueue<uint64_t, 16777216> bq;
+    
 };
-
 #endif /* MPMCQUEUETEST_H */
 

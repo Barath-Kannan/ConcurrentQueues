@@ -1,6 +1,12 @@
 /* 
  * File:   MPMCQueue.hpp
  * Author: Barath Kannan
+ * This is an unbounded multi-producer multi-consumer queue.
+ * It can also be used as any combination of single-producer and single-consumer
+ * queues for additional performance gains in those contexts. The queue is implemented
+ * as a linked list, where nodes are stored in a freelist after being dequeued. 
+ * Enqueue operations will either acquire items from the freelist or allocate a
+ * new node if none are available.
  * Created on 27 August 2016, 11:30 PM
  */
 
@@ -46,9 +52,7 @@ public:
     bool scDequeue(T& output){
         listNode* tail = _tail.load(std::memory_order_relaxed);
         listNode* next = tail->next.load(std::memory_order_acquire);
-        if (next == nullptr){
-            return false;
-        }
+        if (!next) return false;
         output = std::move(next->data);
         _tail.store(next, std::memory_order_release);
         freeListEnqueue(tail);
@@ -62,7 +66,7 @@ public:
             tail = _tail.exchange(nullptr, std::memory_order_acq_rel);
         }
         listNode *next = tail->next.load(std::memory_order_acquire);
-        if (next == nullptr){
+        if (!next){
             _tail.exchange(tail, std::memory_order_acq_rel);
             return false;
         }

@@ -1,4 +1,6 @@
 # MPMCQueue
 
-Unbounded Linked list based MPMC queue based on Dmitry Vyukov's MPSC queue (http://www.1024cores.net/home/lock-free-algorithms/queues/non-intrusive-mpsc-node-based-queue)
+Based on Dmitry Vyukov's queues (http://www.1024cores.net/home/lock-free-algorithms/queues/)
 and adapted from implementations by Mathew Stump (https://github.com/mstump/queues)
+
+Contains linked-list based unbounded queue and array based bounded queue.

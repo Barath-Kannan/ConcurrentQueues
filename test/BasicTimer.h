@@ -27,7 +27,8 @@ public:
     friend std::ostream& operator<< (std::ostream& os, const BasicTimer& bt) ;
     
 protected:
-    std::chrono::time_point<std::chrono::high_resolution_clock> begin, end;
+    std::chrono::time_point<std::chrono::high_resolution_clock> begin{std::chrono::high_resolution_clock::now()};
+    std::chrono::time_point<std::chrono::high_resolution_clock> end{begin};
     bool running;
 };
 

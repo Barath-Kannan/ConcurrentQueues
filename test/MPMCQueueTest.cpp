@@ -3,263 +3,206 @@
 #include <chrono>
 
 using CONQ::MPMCQueue;
+using ::testing::Values;
+using ::testing::Combine;
 using std::cout;
 using std::endl;
 
-void MPMCQueueTest::SetUp(){}
-void MPMCQueueTest::TearDown(){}
-
-TEST_F(MPMCQueueTest, BasicTest){
-    MPMCQueue<uint64_t> q;
-    bt1.start();
-    for (uint64_t i=0; i<1e8; ++i){
-        q.spEnqueue(i);
+std::ostream& operator<<(std::ostream& os, const std::chrono::duration<double>& t) {
+    double val;
+    if ((val = std::chrono::duration<double>(t).count()) > 1.0){
+        os << val << " seconds";
     }
-    bt1.stop();
-    cout << "Time to enqueue: " << bt1 << endl;
-    auto durPer = bt1.getElapsedDuration()/1e8;
-    cout << std::chrono::duration<double, std::nano>(durPer).count() << " ns per enqueue" << endl;
-    uint64_t res;
-    bt1.start();
-    for (uint64_t i=0; i<1e8; ++i){
-        q.scDequeue(res);
+    else if ((val = std::chrono::duration<double, std::milli>(t).count()) > 1.0){
+        os << val << " milliseconds";
     }
-    bt1.stop();
-    cout << "Time to dequeue: " << bt1 << endl;
-    durPer = bt1.getElapsedDuration()/1e8;
-    cout << std::chrono::duration<double, std::nano>(durPer).count() << " ns per dequeue" << endl;
+    else if ((val = std::chrono::duration<double, std::micro>(t).count()) > 1.0){
+        os << val << " microseconds";
+    }
+    else{
+        val = std::chrono::duration<double, std::nano>(t).count();
+        os << val << " nanoseconds";
+    }
+    return os;
 }
 
-TEST_F(MPMCQueueTest, ConcurrentEnqueueDequeueTest){
-    MPMCQueue<uint64_t> q;
-    std::thread t1([&](){
-        bt1.start();
-        for (uint64_t i=0; i<1e8; ++i){
-            q.spEnqueue(i);
+void QueueTest::SetUp(){
+    auto tupleParams = GetParam();
+    _params = TestParameters{::testing::get<0>(tupleParams), ::testing::get<1>(tupleParams), ::testing::get<2>(tupleParams)};
+    readers.resize(_params.nReaders, BasicTimer());
+    writers.resize(_params.nWriters, BasicTimer());
+    cout << "Readers: " << _params.nReaders << endl;
+    cout << "Writers: " << _params.nWriters << endl;
+    cout << "Elements: " << _params.nElements << endl;
+}
+
+void QueueTest::TearDown(){
+    cout << "Enqueue:" << endl;
+    auto writeDur = writers[0].getElapsedDuration();
+    auto writeMax = writers[0].getElapsedDuration();
+    int toMeasure = 1;
+    for (size_t i=1; i<writers.size(); ++i){
+        auto dur = writers[i].getElapsedDuration();
+        if (dur > std::chrono::nanoseconds(1)){
+            writeDur += dur;
+            if (dur > writeMax) writeMax = dur;
+            ++toMeasure;
         }
-        bt1.stop();
-        std::lock_guard<std::mutex> lock(_writeMutex);
-        cout << "Time to enqueue: " << bt1 << endl;
-        auto durPer = bt1.getElapsedDuration()/1e8;
-        cout << std::chrono::duration<double, std::nano>(durPer).count() << " ns per enqueue" << endl;
-    });
+    }
+    writeDur/=toMeasure;
+    cout << "Max write thread duration: " << writeMax << endl;
+    cout << "Average write thread duration: " << writeDur << endl;
+    writeDur/=_params.nElements;
+    cout << "Average time per enqueue: " << writeDur << endl;
     
-    std::thread t2([&](){
-        bt2.start();
-        uint64_t res;
-        for (uint64_t i=0; i<1e8; ++i){
-            while (!q.scDequeue(res));
-        }
-        bt2.stop();
-        std::lock_guard<std::mutex> lock(_writeMutex);
-        cout << "Time to dequeue: " << bt2 << endl;
-        auto durPer = bt2.getElapsedDuration()/1e8;
-        cout << std::chrono::duration<double, std::nano>(durPer).count() << " ns per dequeue" << endl;
-    });
-    t1.join();
-    t2.join();    
+    cout << "Dequeue:" << endl;
+    auto readDur = readers[0].getElapsedDuration();
+    auto readMax = readers[0].getElapsedDuration();
+    toMeasure = 1;
+    for (size_t i=1; i<readers.size(); ++i){
+        auto dur = readers[i].getElapsedDuration();
+        if (dur > std::chrono::nanoseconds(1)){
+            readDur += dur;
+            if (dur > readMax) readMax = dur;
+            ++toMeasure;
+        }        
+    }
+    readDur/=toMeasure;
+    cout << "Max read thread duration: " << readMax << endl;
+    cout << "Average read thread duration: " << readDur << endl;
+    readDur/=_params.nElements;
+    cout << "Average time per dequeue: " << readDur << endl;
 }
 
-TEST_F(MPMCQueueTest, MultiEmitLight){
-    MPMCQueue<uint64_t> q;
+TEST_P(QueueTest, Busy){
     std::vector<std::thread> l;
-    l.emplace_back([&](){
-        uint64_t res;
-        bt2.start();
-        for (uint64_t i=0; i<1e7; ++i){
-            while (!q.scDequeue(res));
-            //q.blockingDequeue(res);
-        }
-        bt2.stop();
-        std::lock_guard<std::mutex> lock(_writeMutex);
-        cout << "Time to dequeue: " << bt2 << endl;
-        auto durPer = bt2.getElapsedDuration()/1e8;
-        cout << std::chrono::duration<double, std::nano>(durPer).count() << " ns per dequeue" << endl;
-    });
-    bt1.start();
-    for (uint32_t i=0; i<10; ++i){
-        l.emplace_back([&](){
-            for (uint64_t i=0; i<1e6; ++i){
-                q.mpEnqueue(i);
-            }
-        });
-    }
-    bt1.stop();
-    for (uint32_t i=1; i<11; ++i){
-        l[i].join();
-    }
-    _writeMutex.lock();
-    cout << "Time to enqueue: " << bt1 << endl;
-    auto durPer = bt1.getElapsedDuration()/1e7;
-    cout << std::chrono::duration<double, std::nano>(durPer).count() << " ns per enqueue" << endl;
-    _writeMutex.unlock();
-    l[0].join();
-}
-
-TEST_F(MPMCQueueTest, MultiEmit){
-    MPMCQueue<uint64_t> q;
-    std::vector<std::thread> l;
-    l.emplace_back([&](){
-        uint64_t res;
-        bt2.start();
-        for (uint64_t i=0; i<1e8; ++i){
-            while (!q.scDequeue(res));
-            //q.blockingDequeue(res);
-        }
-        bt2.stop();
-        std::lock_guard<std::mutex> lock(_writeMutex);
-        cout << "Time to dequeue: " << bt2 << endl;
-        auto durPer = bt2.getElapsedDuration()/1e8;
-        cout << std::chrono::duration<double, std::nano>(durPer).count() << " ns per dequeue" << endl;
-    });
-    bt1.start();
-    for (uint32_t i=0; i<10; ++i){
-        l.emplace_back([&](){
-            for (uint64_t i=0; i<1e7; ++i){
-                q.mpEnqueue(i);
-            }
-        });
-    }
-    bt1.stop();
-    for (uint32_t i=1; i<11; ++i){
-        l[i].join();
-    }
-    _writeMutex.lock();
-    cout << "Time to enqueue: " << bt1 << endl;
-    auto durPer = bt1.getElapsedDuration()/1e8;
-    cout << std::chrono::duration<double, std::nano>(durPer).count() << " ns per enqueue" << endl;
-    _writeMutex.unlock();
-    l[0].join();
-}
-
-TEST_F(MPMCQueueTest, MultiEmitMultiConsume){
-    MPMCQueue<uint64_t> q;
-    std::vector<std::thread> l;
-    
-    bt1.start();
-    for (uint32_t i=0; i<8; ++i){
-        l.emplace_back([&](){
+    for (size_t i=0; i<_params.nReaders; ++i){
+        l.emplace_back([&, i](){
+            readers[i].start();
             uint64_t res;
-            for (uint64_t i=0; i<1e7; ++i){
+            for (size_t j=0; j<_params.nElements/_params.nReaders; ++j){
                 while (!q.mcDequeue(res));
             }
-        });
-    }
-    for (uint32_t i=0; i<8; ++i){
-        l.emplace_back([&](){
-            for (uint64_t i=0; i<1e7; ++i){
-                q.mpEnqueue(i);
+            if (i == 0){
+                size_t remainder = _params.nElements - ((_params.nElements/_params.nReaders)*_params.nReaders);
+                for (size_t j=0; j<remainder; ++j){
+                    while (!q.mcDequeue(res));
+                }
             }
+            readers[i].stop();
         });
     }
-    for (uint32_t i=0; i<16; ++i){
+    for (size_t i=0; i<_params.nWriters; ++i){
+        l.emplace_back([&, i](){
+            writers[i].start();
+            for (size_t j=0; j<_params.nElements/_params.nWriters; ++j){
+                q.mpEnqueue(j);
+            }
+            if (i == 0){
+                size_t remainder = _params.nElements - ((_params.nElements/_params.nWriters)*_params.nWriters);
+                for (size_t j=0; j<remainder; ++j){
+                    q.mpEnqueue(j);
+                }
+            }
+            writers[i].stop();
+        });
+    }
+    for (size_t i=0; i<_params.nReaders + _params.nWriters; ++i){
         l[i].join();
     }
-    bt1.stop();
-    cout << "Time to finish: " << bt1 << endl;
-    auto durPer = bt1.getElapsedDuration()/8e7;
-    cout << std::chrono::duration<double, std::nano>(durPer).count() << " ns per dequeue" << endl;
-    cout << "Throughput: " << 8e7/bt1.getElapsedSeconds() << " messages/s" << endl;
 }
 
-TEST_F(MPMCQueueTest, MPMCBinaryExponentialBackoff){
-    MPMCQueue<uint64_t> q;
+TEST_P(QueueTest, BoundedBusy){
     std::vector<std::thread> l;
-    
-    bt1.start();
-    for (uint32_t i=0; i<8; ++i){
-        l.emplace_back([&](){
+    for (size_t i=0; i<_params.nReaders; ++i){
+        l.emplace_back([&, i](){
+            readers[i].start();
+            uint64_t res;
+            for (size_t j=0; j<_params.nElements/_params.nReaders; ++j){
+                while (!bq.mcDequeue(res));
+            }
+            if (i == 0){
+                size_t remainder = _params.nElements - ((_params.nElements/_params.nReaders)*_params.nReaders);
+                for (size_t j=0; j<remainder; ++j){
+                    while (!bq.mcDequeue(res));
+                }
+            }
+            readers[i].stop();
+        });
+    }
+    for (size_t i=0; i<_params.nWriters; ++i){
+        l.emplace_back([&, i](){
+            writers[i].start();
+            for (size_t j=0; j<_params.nElements/_params.nWriters; ++j){
+                while (!bq.mpEnqueue(j));
+            }
+            if (i == 0){
+                size_t remainder = _params.nElements - ((_params.nElements/_params.nWriters)*_params.nWriters);
+                for (size_t j=0; j<remainder; ++j){
+                    while (!bq.mpEnqueue(j));
+                }
+            }
+            writers[i].stop();
+        });
+    }
+    for (size_t i=0; i<_params.nReaders + _params.nWriters; ++i){
+        l[i].join();
+    }
+}
+
+TEST_P(QueueTest, BinaryExponentialBackoff){
+    std::vector<std::thread> l;
+    for (size_t i=0; i<_params.nReaders; ++i){
+        l.emplace_back([&, i](){
+            readers[i].start();
             uint64_t res;
             auto waitTime = std::chrono::nanoseconds(1);
-            for (uint64_t i=0; i<1e7; ++i){
+            for (size_t j=0; j<_params.nElements/_params.nReaders; ++j){
                 waitTime = std::chrono::nanoseconds(1);
                 while (!q.mcDequeue(res)){
                     std::this_thread::sleep_for(waitTime);
                     waitTime*=2;
                 }
-                
             }
+            if (i == 0){
+                size_t remainder = _params.nElements - ((_params.nElements/_params.nReaders)*_params.nReaders);
+                for (size_t j=0; j<remainder; ++j){
+                    waitTime = std::chrono::nanoseconds(1);
+                    while (!q.mcDequeue(res)){
+                        std::this_thread::sleep_for(waitTime);
+                        waitTime*=2;
+                    }
+                }
+            }
+            readers[i].stop();
         });
     }
-    for (uint32_t i=0; i<8; ++i){
-        l.emplace_back([&](){
-            for (uint64_t i=0; i<1e7; ++i){
-                q.mpEnqueue(i);
+    for (size_t i=0; i<_params.nWriters; ++i){
+        l.emplace_back([&, i](){
+            writers[i].start();
+            for (size_t j=0; j<_params.nElements/_params.nWriters; ++j){
+                q.mpEnqueue(j);
             }
+            if (i == 0){
+                size_t remainder = _params.nElements - ((_params.nElements/_params.nWriters)*_params.nWriters);
+                for (size_t j=0; j<remainder; ++j){
+                    q.mpEnqueue(j);
+                }
+            }
+            writers[i].stop();
         });
     }
-    for (uint32_t i=0; i<16; ++i){
+    for (size_t i=0; i<_params.nReaders + _params.nWriters; ++i){
         l[i].join();
     }
-    bt1.stop();
-    cout << "Time to finish: " << bt1 << endl;
-    auto durPer = bt1.getElapsedDuration()/8e7;
-    cout << std::chrono::duration<double, std::nano>(durPer).count() << " ns per dequeue" << endl;
-    cout << "Throughput: " << 8e7/bt1.getElapsedSeconds() << " messages/s" << endl;
 }
 
-TEST_F(MPMCQueueTest, MultiDequeueBinaryExponentialBackoffLight){
-    MPMCQueue<uint64_t> q;
-    std::vector<std::thread> l;
-    
-    for (uint64_t i=0; i<8e6; ++i){
-        q.mpEnqueue(i);
-    }
-    
-    bt1.start();
-    for (uint32_t i=0; i<8; ++i){
-        l.emplace_back([&](){
-            uint64_t res;
-            auto waitTime = std::chrono::nanoseconds(1);
-            for (uint64_t i=0; i<1e6; ++i){
-                waitTime = std::chrono::nanoseconds(1);
-                while (!q.mcDequeue(res)){
-                    std::this_thread::sleep_for(waitTime);
-                    waitTime*=2;
-                }
-                
-            }
-        });
-    }
-    for (uint32_t i=0; i<8; ++i){
-        l[i].join();
-    }
-    bt1.stop();
-    cout << "Time to finish: " << bt1 << endl;
-    auto durPer = bt1.getElapsedDuration()/8e6;
-    cout << std::chrono::duration<double, std::nano>(durPer).count() << " ns per dequeue" << endl;
-    cout << "Throughput: " << 8e6/bt1.getElapsedSeconds() << " messages/s" << endl;
-}
-
-TEST_F(MPMCQueueTest, MultiDequeueBinaryExponentialBackoff){
-    MPMCQueue<uint64_t> q;
-    std::vector<std::thread> l;
-    
-    for (uint64_t i=0; i<8e7; ++i){
-        q.mpEnqueue(i);
-    }
-    
-    bt1.start();
-    for (uint32_t i=0; i<8; ++i){
-        l.emplace_back([&](){
-            uint64_t res;
-            auto waitTime = std::chrono::nanoseconds(1);
-            for (uint64_t i=0; i<1e7; ++i){
-                waitTime = std::chrono::nanoseconds(1);
-                while (!q.mcDequeue(res)){
-                    std::this_thread::sleep_for(waitTime);
-                    waitTime*=2;
-                }
-                
-            }
-        });
-    }
-    for (uint32_t i=0; i<8; ++i){
-        l[i].join();
-    }
-    bt1.stop();
-    cout << "Time to finish: " << bt1 << endl;
-    auto durPer = bt1.getElapsedDuration()/8e7;
-    cout << std::chrono::duration<double, std::nano>(durPer).count() << " ns per dequeue" << endl;
-    cout << "Throughput: " << 8e7/bt1.getElapsedSeconds() << " messages/s" << endl;
-}
+INSTANTIATE_TEST_CASE_P(
+        MPMC_Benchmark,
+        QueueTest,
+        testing::Combine(
+        Values(1, 2, 4, 8, 16, 32), //readers
+        Values(1, 2, 4, 8, 16, 32), //writers
+        Values(1e6, 1e7, 1e8, 1e9) //elements
+        )
+        );
