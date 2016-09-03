@@ -75,7 +75,7 @@ POSTBUILD =
 ############################
 
 # Project Directories
-SRCDIR = src
+SRCDIR = 
 INCDIR = inc
 TESTDIR = test
 

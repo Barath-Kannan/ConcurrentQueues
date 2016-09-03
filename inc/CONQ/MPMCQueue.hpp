@@ -49,7 +49,7 @@ public:
         if (next == nullptr){
             return false;
         }
-        output = next->data;
+        output = std::move(next->data);
         _tail.store(next, std::memory_order_release);
         freeListEnqueue(tail);
         return true;
@@ -66,14 +66,10 @@ public:
             _tail.exchange(tail, std::memory_order_acq_rel);
             return false;
         }
-        output = next->data;
+        output = std::move(next->data);
         _tail.store(next, std::memory_order_release);
         freeListEnqueue(tail);
-        return true;        
-    }
-    
-    bool empty(){
-        return !(_tail.load(std::memory_order_relaxed)->next.load(std::memory_order_acquire));
+        return true;
     }
     
 private:    
