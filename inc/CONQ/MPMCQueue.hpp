@@ -17,7 +17,6 @@
 #include <thread>
 
 namespace CONQ{
-
 template<typename T>
 class MPMCQueue{
 public:
@@ -115,5 +114,4 @@ private:
     void operator=(const MPMCQueue&) {}
 };
 }
-
 #endif

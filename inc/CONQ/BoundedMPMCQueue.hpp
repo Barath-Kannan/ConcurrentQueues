@@ -17,7 +17,6 @@
 #include <type_traits>
 
 namespace CONQ{
-
 template<typename T, size_t N>
 class BoundedMPMCQueue
 {
@@ -35,7 +34,7 @@ public:
         node_t* node = &_buffer[head_seq & (N-1)];
         size_t node_seq = node->seq.load(std::memory_order_acquire);
         intptr_t dif = (intptr_t) node_seq - (intptr_t) head_seq;
-        if (dif == 0 && _head_seq.compare_exchange_weak(head_seq, head_seq + 1, std::memory_order_relaxed)){
+        if (dif == 0 && _head_seq.compare_exchange_strong(head_seq, head_seq + 1, std::memory_order_relaxed)){
             node->data = data;
             node->seq.store(head_seq + 1, std::memory_order_release);
             return true;
@@ -70,7 +69,7 @@ public:
         node_t* node = &_buffer[tail_seq & (N-1)];
         size_t node_seq = node->seq.load(std::memory_order_acquire);
         intptr_t dif = (intptr_t) node_seq - (intptr_t)(tail_seq + 1);
-        if (dif == 0 && _tail_seq.compare_exchange_weak(tail_seq, tail_seq + 1, std::memory_order_relaxed)){
+        if (dif == 0 && _tail_seq.compare_exchange_strong(tail_seq, tail_seq + 1, std::memory_order_relaxed)){
             data = node->data;
             node->seq.store(tail_seq + N, std::memory_order_release);
             return true;
@@ -116,5 +115,5 @@ private:
     void operator=(const BoundedMPMCQueue&) {}
 };
 }
-#endif /* CONQ_BOUNDEDMPMCQUEUE_H */
+#endif
 
