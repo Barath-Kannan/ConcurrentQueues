@@ -9,14 +9,44 @@ static const char kUniversalFilter[] = "*";
 static const char kTypeParamLabel[] = "TypeParam";
 static const char kValueParamLabel[] = "GetParam()";
 
-#define PRINT_SEPARATOR printf("-----------------------------------------------------------------------------------\n");
-#define PRINT_MAIN_SEPARATOR printf("|---------------------------------------------------------------------------------|\n");
-#define PRINT_UNDERSEPARATOR printf("|- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -|\n");
-#define PRINT_EXTENDER printf("- ");
-#define PRINT_ALT_EXTENDER printf("~| ");
-#define PRINT_LONG_EXTENDER printf("    ");
-#define PRINT_FAILSTART_MARKER printf("|#!#!#! TEST_FAILURE >>>>>>> TEST_FAILURE <<<<<<< TEST_FAILURE #!#!#!|\n");
-#define PRINT_FAILEND_MARKER printf(" ^       ^      ^     ^    ^   ^  ^ ^  ^   ^    ^     ^      ^       ^ \n");
+namespace GtestPrintHelperBK{
+    void printSeparator(){
+        for (size_t i=0; i<80; ++i) cout << "-";
+        cout << endl;
+    }
+    
+    void printMainSeparator(){
+        cout << "|";
+        for (size_t i=0; i<78; ++i) cout << "-";
+        cout << "|" << endl;
+    }
+    
+    void printUnderSeparator(){
+        cout << "|";
+        for (size_t i=0; i<38; ++i) cout << "- ";
+        cout << "-|" << endl;
+    }
+    
+    void printExtender(){
+        cout << "- ";
+    }
+    
+    void printAltExtender(){
+        cout << "~| ";
+    }
+
+    void printLongExtender(){
+        cout << "    ";
+    }
+    
+    void printFailStartMarker(){
+        cout << "|#!#!#! TEST_FAILURE >>>>>>> TEST_FAILURE <<<<<<< TEST_FAILURE #!#!#!|" << endl;
+    }
+    
+    void printFailEndMarker(){
+        cout << " ^       ^      ^     ^    ^   ^  ^ ^  ^   ^    ^     ^      ^       ^ " << endl;
+    }
+}
 
 class CustomTestPrinter : public EmptyTestEventListener {
     // Fired before each iteration of tests starts.
@@ -37,12 +67,12 @@ class CustomTestPrinter : public EmptyTestEventListener {
             printf("Note: Randomizing tests' orders with a seed of %d .\n", unit_test.random_seed());
         }
 
-        PRINT_SEPARATOR;
-        PRINT_EXTENDER;
+        GtestPrintHelperBK::printSeparator();
+        GtestPrintHelperBK::printExtender();
         printf("Running %d test%s from %d test case%s.\n",
                 unit_test.test_to_run_count(), unit_test.test_to_run_count() == 1 ? "" : "s",
                 unit_test.test_case_to_run_count(), unit_test.test_case_to_run_count() == 1 ? "" : "s");
-        PRINT_SEPARATOR;
+        GtestPrintHelperBK::printSeparator();
         fflush(stdout);
     }
 
@@ -53,21 +83,22 @@ class CustomTestPrinter : public EmptyTestEventListener {
     }
 
     void OnTestCaseStart(const TestCase& test_case) {
-        PRINT_ALT_EXTENDER;
+        GtestPrintHelperBK::printAltExtender();
         printf("Test Case: %s", test_case.name());
         if (test_case.type_param() == NULL) {
             printf("\n");
         } else {
             printf(", where %s = %s\n", kTypeParamLabel, test_case.type_param());
         }
-        PRINT_ALT_EXTENDER;
+        GtestPrintHelperBK::printAltExtender();
         printf("Tests: \n");
-        for (int i=0; i<test_case.test_to_run_count(); i++){
-            PRINT_ALT_EXTENDER;
-            PRINT_LONG_EXTENDER;
-            PRINT_EXTENDER;
-            printf("%s\n", test_case.GetTestInfo(i)->name());
-            
+        for (int i=0; i<test_case.total_test_count(); i++){
+            GtestPrintHelperBK::printAltExtender();
+            GtestPrintHelperBK::printLongExtender();
+            GtestPrintHelperBK::printExtender();
+            if (test_case.GetTestInfo(i)->should_run()){
+                cout << test_case.GetTestInfo(i)->name() << endl;
+            }
         }
         /*printf("%d %s from %s", test_case.test_to_run_count(), test_case.test_to_run_count() == 1 ? "test" : "tests", test_case.name());
         if (test_case.type_param() == NULL) {
@@ -75,15 +106,15 @@ class CustomTestPrinter : public EmptyTestEventListener {
         } else {
             printf(", where %s = %s\n", kTypeParamLabel, test_case.type_param());
         }*/
-        PRINT_SEPARATOR;
+        GtestPrintHelperBK::printSeparator();
         fflush(stdout);
     }
 
     void OnTestStart(const TestInfo& test_info) {
-        PRINT_LONG_EXTENDER;
+        GtestPrintHelperBK::printLongExtender();
         printf("Test %s.%s RUNNING", test_info.test_case_name(), test_info.name());
         printf("\n");
-        PRINT_SEPARATOR;
+        GtestPrintHelperBK::printSeparator();
         fflush(stdout);
     }
 
@@ -94,12 +125,12 @@ class CustomTestPrinter : public EmptyTestEventListener {
         // If the test part succeeded, we don't need to do anything.
         if (result.type() == TestPartResult::kSuccess)
             return;
-        PRINT_FAILSTART_MARKER;
+        GtestPrintHelperBK::printFailStartMarker();
         printf("Failure in %s:%d\n%s\n",
                 result.file_name(),
                 result.line_number(),
                 result.summary());
-        PRINT_FAILEND_MARKER;
+        GtestPrintHelperBK::printFailEndMarker();
         fflush(stdout);
     }
 
@@ -121,8 +152,8 @@ class CustomTestPrinter : public EmptyTestEventListener {
     }
 
     void OnTestEnd(const TestInfo& test_info) {
-        PRINT_SEPARATOR;
-        PRINT_LONG_EXTENDER;
+        GtestPrintHelperBK::printSeparator();
+        GtestPrintHelperBK::printLongExtender();
         printf("Test %s.%s %s", test_info.test_case_name(), test_info.name(), test_info.result()->Passed() ? "PASSED" : "FAILED");
 
         if (test_info.result()->Failed())
@@ -133,16 +164,16 @@ class CustomTestPrinter : public EmptyTestEventListener {
         } else {
             printf("\n");
         }
-        PRINT_SEPARATOR;
+        GtestPrintHelperBK::printSeparator();
         fflush(stdout);
     }
 
     void OnTestCaseEnd(const TestCase& test_case) {
         if (!GTEST_FLAG(print_time)) return;
-        PRINT_ALT_EXTENDER;
+        GtestPrintHelperBK::printAltExtender();
         printf("%d %s from %s (%ld ms total)\n", 
                 test_case.test_to_run_count(), test_case.test_to_run_count() == 1 ? "test" : "tests", test_case.name(), (long)test_case.elapsed_time());
-        PRINT_SEPARATOR;
+        GtestPrintHelperBK::printSeparator();
         fflush(stdout);
     }
 
@@ -160,7 +191,7 @@ class CustomTestPrinter : public EmptyTestEventListener {
         if (failed_test_count == 0) {
             return;
         }
-        PRINT_SEPARATOR;
+        GtestPrintHelperBK::printSeparator();
         printf("Failed tests: \n");
         for (int i = 0; i < unit_test.total_test_case_count(); ++i) {
             const TestCase& test_case = *unit_test.GetTestCase(i);
@@ -173,17 +204,17 @@ class CustomTestPrinter : public EmptyTestEventListener {
                 if (!test_info.should_run() || test_info.result()->Passed()) {
                     continue;
                 }
-                PRINT_EXTENDER;
+                GtestPrintHelperBK::printExtender();
                 printf("%s.%s", test_case.name(), test_info.name());
                 PrintFullTestCommentIfPresent(test_info);
                 printf("\n");
             }   
         }
-        PRINT_SEPARATOR;
+        GtestPrintHelperBK::printSeparator();
     }
 
     void OnTestIterationEnd(const UnitTest& unit_test, int /*iteration*/) {
-        PRINT_EXTENDER;
+        GtestPrintHelperBK::printExtender();
         printf("%d %s from %d %s ran", 
                 unit_test.test_to_run_count(), unit_test.test_to_run_count() == 1 ? "test" : "tests",
                 unit_test.test_case_to_run_count(), unit_test.test_case_to_run_count() == 1 ? "test case" : "test cases");
@@ -193,13 +224,13 @@ class CustomTestPrinter : public EmptyTestEventListener {
                     internal::StreamableToString(unit_test.elapsed_time()).c_str());
         }
         printf("\n");
-        PRINT_EXTENDER;
+        GtestPrintHelperBK::printExtender();
         printf("%d %s PASSED.\n", unit_test.successful_test_count(), unit_test.successful_test_count() == 1 ? "test" : "tests");
 
         int num_failures = unit_test.failed_test_count();
         if (!unit_test.Passed()) {
             const int failed_test_count = unit_test.failed_test_count();
-            PRINT_EXTENDER;
+            GtestPrintHelperBK::printExtender();
             printf("%d %s FAILED.\n", failed_test_count, failed_test_count == 1 ? "test" : "tests");
             PrintFailedTests(unit_test);
         }

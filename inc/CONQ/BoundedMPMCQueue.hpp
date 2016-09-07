@@ -70,7 +70,7 @@ public:
         size_t node_seq = node->seq.load(std::memory_order_acquire);
         intptr_t dif = (intptr_t) node_seq - (intptr_t)(tail_seq + 1);
         if (dif == 0 && _tail_seq.compare_exchange_strong(tail_seq, tail_seq + 1, std::memory_order_relaxed)){
-            data = node->data;
+            data = std::move(node->data);
             node->seq.store(tail_seq + N, std::memory_order_release);
             return true;
         }
@@ -85,7 +85,7 @@ public:
             intptr_t dif = (intptr_t) node_seq - (intptr_t)(tail_seq + 1);
             if (dif == 0){
                 if (_tail_seq.compare_exchange_weak(tail_seq, tail_seq + 1, std::memory_order_relaxed)){
-                    data = node->data;
+                    data = std::move(node->data);
                     node->seq.store(tail_seq + N, std::memory_order_release);
                     return true;
                 }
