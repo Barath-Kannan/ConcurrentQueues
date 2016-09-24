@@ -57,10 +57,9 @@ public:
     }
     
     bool mcDequeue(T& output){
-        listNode *tail = _tail.exchange(nullptr, std::memory_order_acq_rel);
-        while (!tail){
+        listNode *tail;
+        for (tail = _tail.exchange(nullptr, std::memory_order_acq_rel); !tail; tail = _tail.exchange(nullptr, std::memory_order_acq_rel)){
             std::this_thread::yield();
-            tail = _tail.exchange(nullptr, std::memory_order_acq_rel);
         }
         listNode *next = tail->next.load(std::memory_order_acquire);
         if (!next){

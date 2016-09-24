@@ -150,6 +150,122 @@ TEST_P(QueueTest, BoundedBusy){
     }
 }
 
+TEST_P(QueueTest, VectorBoundedBusy){
+    std::vector<std::thread> l;
+    for (size_t i=0; i<_params.nReaders; ++i){
+        l.emplace_back([&, i](){
+            readers[i].start();
+            uint64_t res;
+            for (size_t j=0; j<_params.nElements/_params.nReaders; ++j){
+                while (!vbq.mcDequeue(res));
+            }
+            if (i == 0){
+                size_t remainder = _params.nElements - ((_params.nElements/_params.nReaders)*_params.nReaders);
+                for (size_t j=0; j<remainder; ++j){
+                    while (!vbq.mcDequeue(res));
+                }
+            }
+            readers[i].stop();
+        });
+    }
+    for (size_t i=0; i<_params.nWriters; ++i){
+        l.emplace_back([&, i](){
+            writers[i].start();
+            for (size_t j=0; j<_params.nElements/_params.nWriters; ++j){
+                while (!vbq.mpEnqueue(j));
+            }
+            if (i == 0){
+                size_t remainder = _params.nElements - ((_params.nElements/_params.nWriters)*_params.nWriters);
+                for (size_t j=0; j<remainder; ++j){
+                    while (!vbq.mpEnqueue(j));
+                }
+            }
+            writers[i].stop();
+        });
+    }
+    for (size_t i=0; i<_params.nReaders + _params.nWriters; ++i){
+        l[i].join();
+    }
+}
+
+TEST_P(QueueTest, CacheQueueBusy){
+    std::vector<std::thread> l;
+    for (size_t i=0; i<_params.nReaders; ++i){
+        l.emplace_back([&, i](){
+            readers[i].start();
+            uint64_t res;
+            for (size_t j=0; j<_params.nElements/_params.nReaders; ++j){
+                while (!dq.mcDequeue(res));
+            }
+            if (i == 0){
+                size_t remainder = _params.nElements - ((_params.nElements/_params.nReaders)*_params.nReaders);
+                for (size_t j=0; j<remainder; ++j){
+                    while (!dq.mcDequeue(res));
+                }
+            }
+            readers[i].stop();
+        });
+    }
+    for (size_t i=0; i<_params.nWriters; ++i){
+        l.emplace_back([&, i](){
+            writers[i].start();
+            for (size_t j=0; j<_params.nElements/_params.nWriters; ++j){
+                dq.mpEnqueue(j);
+            }
+            if (i == 0){
+                size_t remainder = _params.nElements - ((_params.nElements/_params.nWriters)*_params.nWriters);
+                for (size_t j=0; j<remainder; ++j){
+                    dq.mpEnqueue(j);
+                }
+            }
+            writers[i].stop();
+        });
+    }
+    for (size_t i=0; i<_params.nReaders + _params.nWriters; ++i){
+        l[i].join();
+    }
+}
+
+
+TEST_P(QueueTest, RotatorQueueBusy){
+    std::vector<std::thread> l;
+    for (size_t i=0; i<_params.nReaders; ++i){
+        l.emplace_back([&, i](){
+            readers[i].start();
+            uint64_t res;
+            for (size_t j=0; j<_params.nElements/_params.nReaders; ++j){
+                while (!rq.mcDequeue(res));
+            }
+            if (i == 0){
+                size_t remainder = _params.nElements - ((_params.nElements/_params.nReaders)*_params.nReaders);
+                for (size_t j=0; j<remainder; ++j){
+                    while (!rq.mcDequeue(res));
+                }
+            }
+            readers[i].stop();
+        });
+    }
+    for (size_t i=0; i<_params.nWriters; ++i){
+        l.emplace_back([&, i](){
+            writers[i].start();
+            for (size_t j=0; j<_params.nElements/_params.nWriters; ++j){
+                rq.mpEnqueue(j);
+            }
+            if (i == 0){
+                size_t remainder = _params.nElements - ((_params.nElements/_params.nWriters)*_params.nWriters);
+                for (size_t j=0; j<remainder; ++j){
+                    rq.mpEnqueue(j);
+                }
+            }
+            writers[i].stop();
+        });
+    }
+    for (size_t i=0; i<_params.nReaders + _params.nWriters; ++i){
+        l[i].join();
+    }
+}
+
+
 TEST_P(QueueTest, BinaryExponentialBackoff){
     std::vector<std::thread> l;
     for (size_t i=0; i<_params.nReaders; ++i){

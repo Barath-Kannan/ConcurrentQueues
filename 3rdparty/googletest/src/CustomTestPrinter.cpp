@@ -93,10 +93,10 @@ class CustomTestPrinter : public EmptyTestEventListener {
         GtestPrintHelperBK::printAltExtender();
         printf("Tests: \n");
         for (int i=0; i<test_case.total_test_count(); i++){
-            GtestPrintHelperBK::printAltExtender();
-            GtestPrintHelperBK::printLongExtender();
-            GtestPrintHelperBK::printExtender();
             if (test_case.GetTestInfo(i)->should_run()){
+                GtestPrintHelperBK::printAltExtender();
+                GtestPrintHelperBK::printLongExtender();
+                GtestPrintHelperBK::printExtender();
                 cout << test_case.GetTestInfo(i)->name() << endl;
             }
         }
