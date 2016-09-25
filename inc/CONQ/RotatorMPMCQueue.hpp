@@ -8,8 +8,7 @@
  * successful dequeue operation, the queue that is used is pushed to the front of the
  * list. The "hit lists" allow the queue to adapt fairly well to different usage contexts,
  * including when there are more readers than writers, more writers than readers,
- * and high contention. This queue only performs worse in single-reader single-writer
- * contexts.
+ * and high contention.
  * Created on 25 September 2016, 12:04 AM
  */
 
@@ -29,18 +28,22 @@ public:
     }
     
     void mpEnqueue(const T& input){
-        thread_local static size_t indx{acquireEnqueueIndx()};
+        thread_local static size_t indx{enqueueIndx.fetch_add(1)%SUBQUEUES};
         q[indx].mpEnqueue(input);
     }
     
     bool mcDequeue(T& output){
         thread_local static std::array<size_t, SUBQUEUES> hitList{{SUBQUEUES}};
         if (hitList[0] == SUBQUEUES){
-            size_t indx{acquireDequeueIndx()};
-            for (size_t i=0; i<SUBQUEUES; ++i) hitList[i] = ((i+indx)%SUBQUEUES);
+            for (size_t i=0; i<SUBQUEUES; ++i) hitList[i] = i;
         }
-        if (q[hitList[0]].mcDequeue(output)) return true;
-        for (auto it = hitList.begin()+1; it != hitList.end(); ++it){
+        for (auto it = hitList.begin(); it != hitList.end(); ++it){
+            if (q[*it].mcDequeueLight(output)){
+                for (auto it2 = hitList.begin(); it2 != it; ++it2) std::swap(*it, *it2);
+                return true;
+            }
+        }
+        for (auto it = hitList.begin(); it != hitList.end(); ++it){
             if (q[*it].mcDequeue(output)){
                 for (auto it2 = hitList.begin(); it2 != it; ++it2) std::swap(*it, *it2);
                 return true;
@@ -50,20 +53,7 @@ public:
     }
     
 private:
-    size_t acquireEnqueueIndx(){
-        size_t tmp = enqueueIndx.load(std::memory_order_relaxed);
-        while(!enqueueIndx.compare_exchange_weak(tmp, (tmp+1)%SUBQUEUES));
-        return tmp;
-    }
-    
-    size_t acquireDequeueIndx(){
-        size_t tmp = dequeueIndx.load(std::memory_order_relaxed);
-        while(!dequeueIndx.compare_exchange_weak(tmp, (tmp+1)%SUBQUEUES));
-        return tmp;
-    }
-
     std::atomic<size_t> enqueueIndx{0};
-    std::atomic<size_t> dequeueIndx{0};
     std::array<MPMCQueue<T>, SUBQUEUES> q;
     
     RotatorMPMCQueue(const RotatorMPMCQueue&){};

@@ -56,11 +56,27 @@ public:
         return true;
     }
     
+    //yield-spin on dequeue contention
     bool mcDequeue(T& output){
         listNode *tail;
         for (tail = _tail.exchange(nullptr, std::memory_order_acq_rel); !tail; tail = _tail.exchange(nullptr, std::memory_order_acq_rel)){
             std::this_thread::yield();
         }
+        listNode *next = tail->next.load(std::memory_order_acquire);
+        if (!next){
+            _tail.exchange(tail, std::memory_order_acq_rel);
+            return false;
+        }
+        output = std::move(next->data);
+        _tail.store(next, std::memory_order_release);
+        freeListEnqueue(tail);
+        return true;
+    }
+    
+    //return false on dequeue contention
+    bool mcDequeueLight(T& output){
+        listNode *tail = _tail.exchange(nullptr, std::memory_order_acq_rel);
+        if (!tail) return false;
         listNode *next = tail->next.load(std::memory_order_acquire);
         if (!next){
             _tail.exchange(tail, std::memory_order_acq_rel);
