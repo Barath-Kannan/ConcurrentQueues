@@ -35,13 +35,13 @@ public:
         if (hitList[0] == SUBQUEUES) std::iota(hitList.begin(), hitList.end(), 0);
         for (auto it = hitList.begin(); it != hitList.end(); ++it){
             if (q[*it].mcDequeueLight(output)){
-                for (auto it2 = hitList.begin(); it2 != it; ++it2) std::swap(*it, *it2);
+                for (auto it2 = hitList.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
                 return true;
             }
         }
         for (auto it = hitList.begin(); it != hitList.end(); ++it){
             if (q[*it].mcDequeue(output)){
-                for (auto it2 = hitList.begin(); it2 != it; ++it2) std::swap(*it, *it2);
+                for (auto it2 = hitList.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
                 return true;
             }
         }
