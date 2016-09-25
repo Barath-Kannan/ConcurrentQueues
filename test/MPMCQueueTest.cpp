@@ -358,7 +358,7 @@ INSTANTIATE_TEST_CASE_P(
         QueueTest,
         testing::Combine(
         Values(1, 2, 4, 8, 16, 32), //readers
-        Values(1, 2, 4, 8, 16, 32), //writers
+        Values(1, 2, 4, 8, 16, 32, 256), //writers
         Values(1e6, 1e7, 1e8, 1e9) //elements
         )
         );
