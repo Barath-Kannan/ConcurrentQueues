@@ -17,6 +17,7 @@
 #define CONQ_ROTATORMPMCQUEUE_HPP
 
 #include "CONQ/MPMCQueue.hpp"
+#include "CONQ/MPMCCacheQueue.hpp"
 #include <thread>
 
 namespace CONQ{
@@ -33,17 +34,15 @@ public:
     }
     
     bool mcDequeue(T& output){
-        thread_local static std::array<int, SUBQUEUES> hitList{{-1}};
-        if (hitList[0] == -1){
+        thread_local static std::array<size_t, SUBQUEUES> hitList{{SUBQUEUES}};
+        if (hitList[0] == SUBQUEUES){
             size_t indx{acquireDequeueIndx()};
-            for (size_t i=0; i<SUBQUEUES; ++i){
-                hitList[i] = ((i+indx)%SUBQUEUES);
-            }
+            for (size_t i=0; i<SUBQUEUES; ++i) hitList[i] = ((i+indx)%SUBQUEUES);
         }
         if (q[hitList[0]].mcDequeue(output)) return true;
         for (auto it = hitList.begin()+1; it != hitList.end(); ++it){
             if (q[*it].mcDequeue(output)){
-                std::swap(*it, *hitList.begin());
+                for (auto it2 = hitList.begin(); it2 != it; ++it2) std::swap(*it, *it2);
                 return true;
             }
         }
