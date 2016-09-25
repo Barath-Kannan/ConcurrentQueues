@@ -18,7 +18,6 @@
 
 #include "CONQ/MPMCQueue.hpp"
 #include <thread>
-#include <queue>
 
 namespace CONQ{
     
@@ -34,33 +33,19 @@ public:
     }
     
     bool mcDequeue(T& output){
-        thread_local static size_t indx{acquireDequeueIndx()};
-        thread_local static std::deque<size_t> hitList;
-        thread_local static std::deque<size_t> noHitList;
-        if (noHitList.empty() && hitList.empty()){
+        thread_local static std::array<int, SUBQUEUES> hitList{{-1}};
+        if (hitList[0] == -1){
+            size_t indx{acquireDequeueIndx()};
             for (size_t i=0; i<SUBQUEUES; ++i){
-                noHitList.push_back((i+indx)%SUBQUEUES);
+                hitList[i] = ((i+indx)%SUBQUEUES);
             }
         }
-        for (auto it = hitList.begin(); it != hitList.end(); ++it){
-            size_t current = *it;
-            if (q[current].mcDequeue(output)){
-                if (it != hitList.begin()){
-                    hitList.erase(it);
-                    hitList.push_front(current);
-                }
+        if (q[hitList[0]].mcDequeue(output)) return true;
+        for (auto it = hitList.begin()+1; it != hitList.end(); ++it){
+            if (q[*it].mcDequeue(output)){
+                std::swap(*it, *hitList.begin());
                 return true;
             }
-        }
-        for (size_t i=0; i<noHitList.size(); ++i){
-            size_t front = noHitList.front();
-            if (q[front].mcDequeue(output)){
-                hitList.push_back(front);
-                noHitList.pop_front();
-                return true;
-            }
-            noHitList.pop_front();
-            noHitList.push_back(front);
         }
         return false;
     }
@@ -77,7 +62,7 @@ private:
         while(!dequeueIndx.compare_exchange_weak(tmp, (tmp+1)%SUBQUEUES));
         return tmp;
     }
-    
+
     std::atomic<size_t> enqueueIndx{0};
     std::atomic<size_t> dequeueIndx{0};
     std::array<MPMCQueue<T>, SUBQUEUES> q;
