@@ -226,7 +226,6 @@ TEST_P(QueueTest, CacheQueueBusy){
     }
 }
 
-
 TEST_P(QueueTest, RotatorQueueBusy){
     std::vector<std::thread> l;
     for (size_t i=0; i<_params.nReaders; ++i){
@@ -265,29 +264,19 @@ TEST_P(QueueTest, RotatorQueueBusy){
     }
 }
 
-
-TEST_P(QueueTest, BinaryExponentialBackoff){
+TEST_P(QueueTest, VectorRotatorQueueBusy){
     std::vector<std::thread> l;
     for (size_t i=0; i<_params.nReaders; ++i){
         l.emplace_back([&, i](){
             readers[i].start();
             uint64_t res;
-            auto waitTime = std::chrono::nanoseconds(1);
             for (size_t j=0; j<_params.nElements/_params.nReaders; ++j){
-                waitTime = std::chrono::nanoseconds(1);
-                while (!q.mcDequeue(res)){
-                    std::this_thread::sleep_for(waitTime);
-                    waitTime*=2;
-                }
+                while (!vrq.mcDequeue(res));
             }
             if (i == 0){
                 size_t remainder = _params.nElements - ((_params.nElements/_params.nReaders)*_params.nReaders);
                 for (size_t j=0; j<remainder; ++j){
-                    waitTime = std::chrono::nanoseconds(1);
-                    while (!q.mcDequeue(res)){
-                        std::this_thread::sleep_for(waitTime);
-                        waitTime*=2;
-                    }
+                    while (!vrq.mcDequeue(res));
                 }
             }
             readers[i].stop();
@@ -297,12 +286,63 @@ TEST_P(QueueTest, BinaryExponentialBackoff){
         l.emplace_back([&, i](){
             writers[i].start();
             for (size_t j=0; j<_params.nElements/_params.nWriters; ++j){
-                q.mpEnqueue(j);
+                vrq.mpEnqueue(j);
             }
             if (i == 0){
                 size_t remainder = _params.nElements - ((_params.nElements/_params.nWriters)*_params.nWriters);
                 for (size_t j=0; j<remainder; ++j){
-                    q.mpEnqueue(j);
+                    vrq.mpEnqueue(j);
+                }
+            }
+            writers[i].stop();
+        });
+    }
+    for (size_t i=0; i<_params.nReaders + _params.nWriters; ++i){
+        l[i].join();
+    }
+}
+
+TEST_P(QueueTest, BinaryExponentialBackoff){
+    std::vector<std::thread> l;
+    for (size_t i=0; i<_params.nReaders; ++i){
+        l.emplace_back([&, i](){
+            readers[i].start();
+            uint64_t res;
+            auto waitTime = std::chrono::nanoseconds(1);
+            size_t failCounter = 0;
+            for (size_t j=0; j<_params.nElements/_params.nReaders; ++j){
+                waitTime = std::chrono::nanoseconds(1);
+                while (!rq.mcDequeue(res)){
+                    ++failCounter;
+                    std::this_thread::sleep_for(waitTime);
+                    waitTime*=2;
+                }
+            }
+            if (i == 0){
+                size_t remainder = _params.nElements - ((_params.nElements/_params.nReaders)*_params.nReaders);
+                for (size_t j=0; j<remainder; ++j){
+                    waitTime = std::chrono::nanoseconds(1);
+                    while (!rq.mcDequeue(res)){
+                        ++failCounter;
+                        std::this_thread::sleep_for(waitTime);
+                        waitTime*=2;
+                    }
+                }
+            }
+            readers[i].stop();
+            std::cout << "Fail counter in thread " << i << ": " << failCounter << std::endl;
+        });
+    }
+    for (size_t i=0; i<_params.nWriters; ++i){
+        l.emplace_back([&, i](){
+            writers[i].start();
+            for (size_t j=0; j<_params.nElements/_params.nWriters; ++j){
+                rq.mpEnqueue(j);
+            }
+            if (i == 0){
+                size_t remainder = _params.nElements - ((_params.nElements/_params.nWriters)*_params.nWriters);
+                for (size_t j=0; j<remainder; ++j){
+                    rq.mpEnqueue(j);
                 }
             }
             writers[i].stop();

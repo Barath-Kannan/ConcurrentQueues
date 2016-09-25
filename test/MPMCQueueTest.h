@@ -14,6 +14,7 @@
 #include <CONQ/VectorBoundedMPMCQueue.hpp>
 #include <CONQ/MPMCCacheQueue.hpp>
 #include <CONQ/RotatorMPMCQueue.hpp>
+#include <CONQ/VectorRotatorMPMCQueue.hpp>
 #include "BasicTimer.h"
 
 struct TestParameters{
@@ -41,6 +42,9 @@ protected:
     CONQ::MPMCCacheQueue<uint64_t, 16777216> dq;
     char padding4[64];
     CONQ::RotatorMPMCQueue<uint64_t, 32> rq;
+    char padding5[64];
+    CONQ::VectorRotatorMPMCQueue<uint64_t> vrq{32};
+    char padding6[64];
 };
 #endif /* MPMCQUEUETEST_H */
 
