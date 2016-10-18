@@ -16,6 +16,7 @@ ExternalProject_Add(googletest
     CMAKE_ARGS
         -DCMAKE_INSTALL_PREFIX=${GTEST_PATH}
         -DCMAKE_CXX_FLAGS=${MSVC_COMPILER_DEFS}
+        -DCMAKE_BUILD_TYPE=${CMAKE_CFG_INTDIR}
         -Dgtest_force_shared_crt=${GTEST_FORCE_SHARED_CRT}
         -Dgtest_disable_pthreads=${GTEST_DISABLE_PTHREADS}
         -DBUILD_GTEST=ON
