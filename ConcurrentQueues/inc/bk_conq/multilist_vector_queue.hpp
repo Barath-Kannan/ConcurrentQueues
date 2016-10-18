@@ -17,7 +17,7 @@
 
 #include <thread>
 #include <vector>
-#include <iostream>
+#include <numeric>
 #include <bk_conq/unbounded_queue.hpp>
 #include <bk_conq/list_queue.hpp>
 

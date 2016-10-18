@@ -16,10 +16,12 @@ add_dependencies(tester googletest)
 target_include_directories(tester
     PUBLIC test
     PUBLIC inc
-    PUBLIC ${GTEST_PATH}/include
+    PUBLIC ${GTEST_INCLUDE_DIRS}
 )
+
+find_package (Threads)
 target_link_libraries(tester
-    pthread
+    ${CMAKE_THREAD_LIBS_INIT}
     gtest
     gtest_main
 )

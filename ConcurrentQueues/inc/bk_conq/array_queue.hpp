@@ -15,6 +15,7 @@
 
 #include <atomic>
 #include <type_traits>
+#include <array>
 #include <bk_conq/bounded_queue.hpp>
 
 namespace bk_conq{

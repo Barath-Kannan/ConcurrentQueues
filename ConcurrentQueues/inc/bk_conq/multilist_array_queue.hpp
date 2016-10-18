@@ -16,6 +16,8 @@
 #define BK_CONQ_MULTILIST_ARRAYQUEUE_HPP
 
 #include <thread>
+#include <array>
+#include <numeric>
 #include <bk_conq/unbounded_queue.hpp>
 #include <bk_conq/list_queue.hpp>
 
