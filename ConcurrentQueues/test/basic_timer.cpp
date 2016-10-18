@@ -1,26 +1,26 @@
-#include "BasicTimer.h"
+#include "basic_timer.h"
 #include <chrono>
 
-BasicTimer::BasicTimer()
+basic_timer::basic_timer()
     : running(false) {}
 
-double BasicTimer::getElapsedSeconds() const{
+double basic_timer::getElapsedSeconds() const{
     return std::chrono::duration<double>(getElapsedDuration()).count();
 }
 
-double BasicTimer::getElapsedMilliseconds() const{
+double basic_timer::getElapsedMilliseconds() const{
     return std::chrono::duration<double, std::milli>(getElapsedDuration()).count();
 }
 
-double BasicTimer::getElapsedMicroseconds() const{
+double basic_timer::getElapsedMicroseconds() const{
     return std::chrono::duration<double, std::micro>(getElapsedDuration()).count();
 }
 
-double BasicTimer::getElapsedNanoseconds() const{
+double basic_timer::getElapsedNanoseconds() const{
     return std::chrono::duration<double, std::nano>(getElapsedDuration()).count();
 }
 
-std::chrono::duration<double> BasicTimer::getElapsedDuration() const{
+std::chrono::duration<double> basic_timer::getElapsedDuration() const{
     if (!running){
         std::chrono::duration<double> elapsed = end-begin;
         return elapsed;
@@ -30,7 +30,7 @@ std::chrono::duration<double> BasicTimer::getElapsedDuration() const{
     return elapsed;
 }
 
-std::ostream& operator<<(std::ostream& os, const BasicTimer& bt) {
+std::ostream& operator<<(std::ostream& os, const basic_timer& bt) {
     double val;
     if ((val = bt.getElapsedSeconds()) > 1.0){
         os << val << " seconds";
@@ -48,18 +48,18 @@ std::ostream& operator<<(std::ostream& os, const BasicTimer& bt) {
     return os;
 }
 
-bool BasicTimer::isRunning() const{
+bool basic_timer::isRunning() const{
     return running;
 }
 
-bool BasicTimer::start() {
+bool basic_timer::start() {
     if (running) return false;
     running = true;
     begin = std::chrono::high_resolution_clock::now();
     return true;
 }
 
-bool BasicTimer::stop() {
+bool basic_timer::stop() {
     if (!running) return false;
     end = std::chrono::high_resolution_clock::now();
     running = false;

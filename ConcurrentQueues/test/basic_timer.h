@@ -1,19 +1,19 @@
 /* 
- * File:   BasicTimer.h
+ * File:   basic_timer.h
  * Author: Barath Kannan
  *
  * Created on April 21, 2016, 12:09 PM
  */
 
-#ifndef BSIGNALS_BASICTIMER_H
-#define BSIGNALS_BASICTIMER_H
+#ifndef BK_CONQ_BASICTIMER_H
+#define BK_CONQ_BASICTIMER_H
 
 #include <chrono>
 #include <iostream>
 
-class BasicTimer{
+class basic_timer{
 public:
-    BasicTimer();
+    basic_timer();
     bool start();
     bool stop();
     
@@ -24,7 +24,7 @@ public:
     double getElapsedNanoseconds() const;
     
     std::chrono::duration<double> getElapsedDuration() const;
-    friend std::ostream& operator<< (std::ostream& os, const BasicTimer& bt) ;
+    friend std::ostream& operator<< (std::ostream& os, const basic_timer& bt) ;
     
 protected:
     std::chrono::time_point<std::chrono::high_resolution_clock> begin{std::chrono::high_resolution_clock::now()};
@@ -32,4 +32,4 @@ protected:
     bool running;
 };
 
-#endif /* BSIGNALS_BASICTIMER_H */
+#endif /* BK_CONQ_BASICTIMER_H */
