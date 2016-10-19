@@ -8,24 +8,21 @@ set(CMAKE_CXX_STANDARD 14)
 ################################################
 # Tests
 ################################################
+enable_testing()
 add_executable(tester
     test/basic_timer.cpp
     test/concurrent_queue_test.cpp
 )
-add_dependencies(tester googletest)
 target_include_directories(tester
     PUBLIC test
     PUBLIC inc
-    PUBLIC ${GTEST_INCLUDE_DIRS}
 )
-
-find_package (Threads)
 target_link_libraries(tester
-    ${CMAKE_THREAD_LIBS_INIT}
-    gtest
-    gtest_main
+    GTest::gtest
+    GTest::gtest_main
 )
 
+add_test(AllTestsInTester tester)
 ################################################
 # Installation
 ################################################
