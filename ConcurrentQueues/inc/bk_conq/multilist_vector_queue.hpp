@@ -48,7 +48,6 @@ public:
     bool sc_dequeue(T& output){
         thread_local static std::vector<size_t> hitlist{{_q.size()}};
         if (hitlist[0] == _q.size()){
-            hitlist.resize(32);
             std::iota(hitlist.begin(), hitlist.end(), 0);
         }
         for (auto it = hitlist.begin(); it != hitlist.end(); ++it){
@@ -63,7 +62,6 @@ public:
     bool mc_dequeue(T& output){
         thread_local static std::vector<size_t> hitlist{{_q.size()}};
         if (hitlist[0] == _q.size()){
-            hitlist.resize(32);
             std::iota(hitlist.begin(), hitlist.end(), 0);
         }
         for (auto it = hitlist.begin(); it != hitlist.end(); ++it){
