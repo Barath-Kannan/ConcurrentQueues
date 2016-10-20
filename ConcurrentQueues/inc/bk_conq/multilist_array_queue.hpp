@@ -46,11 +46,11 @@ public:
     }
     
     bool sc_dequeue(T& output){
-        thread_local static std::array<size_t, SUBQUEUES> histlist{{SUBQUEUES}};
-        if (histlist[0] == SUBQUEUES) std::iota(histlist.begin(), histlist.end(), 0);
-        for (auto it = histlist.begin(); it != histlist.end(); ++it){
+        thread_local static std::array<size_t, SUBQUEUES> hitlist{{SUBQUEUES}};
+        if (hitlist[0] == SUBQUEUES) std::iota(hitlist.begin(), hitlist.end(), 0);
+        for (auto it = hitlist.begin(); it != hitlist.end(); ++it){
             if (_q[*it].sc_dequeue(output)){
-                for (auto it2 = histlist.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
+                for (auto it2 = hitlist.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
                 return true;
             }
         }
@@ -58,17 +58,17 @@ public:
     }
     
     bool mc_dequeue(T& output){
-        thread_local static std::array<size_t, SUBQUEUES> histlist{{SUBQUEUES}};
-        if (histlist[0] == SUBQUEUES) std::iota(histlist.begin(), histlist.end(), 0);
-        for (auto it = histlist.begin(); it != histlist.end(); ++it){
+        thread_local static std::array<size_t, SUBQUEUES> hitlist{{SUBQUEUES}};
+        if (hitlist[0] == SUBQUEUES) std::iota(hitlist.begin(), hitlist.end(), 0);
+        for (auto it = hitlist.begin(); it != hitlist.end(); ++it){
             if (_q[*it].mc_dequeue_light(output)){
-                for (auto it2 = histlist.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
+                for (auto it2 = hitlist.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
                 return true;
             }
         }
-        for (auto it = histlist.begin(); it != histlist.end(); ++it){
+        for (auto it = hitlist.begin(); it != hitlist.end(); ++it){
             if (_q[*it].mc_dequeue(output)){
-                for (auto it2 = histlist.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
+                for (auto it2 = hitlist.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
                 return true;
             }
         }

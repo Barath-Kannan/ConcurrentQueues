@@ -23,7 +23,6 @@ struct TestParameters {
     uint32_t nElements;
 };
 
-
 class QueueTest : public testing::Test,
 public testing::WithParamInterface< ::testing::tuple<uint32_t, uint32_t, uint32_t> > {
 public:
