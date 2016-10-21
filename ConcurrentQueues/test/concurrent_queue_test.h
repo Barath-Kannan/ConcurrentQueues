@@ -1,4 +1,4 @@
-/* 
+/*
  * File:   concurrent_queue_test.h
  * Author: Barath Kannan
  *
@@ -73,7 +73,7 @@ protected:
             l[i].join();
         }
     }
-    
+
     template<typename T, typename R, typename... Args>
     typename std::enable_if_t<std::is_base_of<bk_conq::unbounded_queue<R>, T>::value>
     BusyTest(TestParameters params, Args&&... args){
@@ -125,7 +125,7 @@ protected:
         });
         GenericTest(params, dfunc, efunc, args...);
     }
-    
+
     template<typename T, typename R, typename... Args>
     typename std::enable_if_t<std::is_base_of<bk_conq::unbounded_queue<R>, T>::value>
     BackoffTest(TestParameters params, Args&&... args){
@@ -159,4 +159,3 @@ protected:
     }
 };
 #endif /* CONCURRENT_QUEUE_TEST_H */
-

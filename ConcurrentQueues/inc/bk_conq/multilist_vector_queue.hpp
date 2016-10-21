@@ -1,4 +1,4 @@
-/* 
+/*
  * File:   multilist_vector_queue.hpp
  * Author: Barath Kannan
  * Array of unbounded list queues. Enqueue operations are assigned a subqueue,
@@ -28,26 +28,27 @@ public:
     multilist_vector_queue(size_t subqueues) : _q{subqueues}{}
     multilist_vector_queue(const multilist_vector_queue&) = delete;
     void operator=(const multilist_vector_queue&) = delete;
-    
+
     void sp_enqueue(T&& input){
         return sp_enqueue_forward(std::move(input));
     }
-    
+
     void sp_enqueue(const T& input){
         return sp_enqueue_forward(input);
     }
-    
+
     void mp_enqueue(T&& input){
         return mp_enqueue_forward(std::move(input));
     }
-    
+
     void mp_enqueue(const T& input){
         return mp_enqueue_forward(input);
     }
-    
+
     bool sc_dequeue(T& output){
         thread_local static std::vector<size_t> hitlist{{_q.size()}};
         if (hitlist[0] == _q.size()){
+            hitlist.resize(_q.size());
             std::iota(hitlist.begin(), hitlist.end(), 0);
         }
         for (auto it = hitlist.begin(); it != hitlist.end(); ++it){
@@ -58,10 +59,11 @@ public:
         }
         return false;
     }
-    
+
     bool mc_dequeue(T& output){
         thread_local static std::vector<size_t> hitlist{{_q.size()}};
         if (hitlist[0] == _q.size()){
+            hitlist.resize(_q.size());
             std::iota(hitlist.begin(), hitlist.end(), 0);
         }
         for (auto it = hitlist.begin(); it != hitlist.end(); ++it){
@@ -78,24 +80,23 @@ public:
         }
         return false;
     }
-    
+
 private:
     template <typename U>
     void sp_enqueue_forward(U&& input){
         thread_local static size_t indx{_enqueue_indx.fetch_add(1)%_q.size()};
         _q[indx].mp_enqueue(std::forward<U>(input));
     }
-    
+
     template <typename U>
     void mp_enqueue_forward(U&& input){
         thread_local static size_t indx{_enqueue_indx.fetch_add(1)%_q.size()};
         _q[indx].mp_enqueue(std::forward<U>(input));
     }
-    
+
     std::vector<list_queue<T>>              _q;
     std::atomic<size_t>                     _enqueue_indx{0};
 };
 }//namespace bk_conq
 
 #endif /* BK_CONQ_MULTILIST_VECTORQUEUE_HPP */
-
