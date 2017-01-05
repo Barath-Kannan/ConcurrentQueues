@@ -15,6 +15,7 @@
 #include <bk_conq/cache_queue.hpp>
 #include <bk_conq/multilist_array_queue.hpp>
 #include <bk_conq/multilist_vector_queue.hpp>
+#include <bk_conq/blocking_unbounded_queue.hpp>
 #include "basic_timer.h"
 
 struct TestParameters {
@@ -73,6 +74,18 @@ protected:
             l[i].join();
         }
     }
+
+	template<typename T, typename R, typename... Args>
+	typename std::enable_if_t<std::is_base_of<bk_conq::unbounded_queue<R>, T>::value>
+		BlockingTest(TestParameters params, Args&&... args) {
+		std::function<void(T&, R & item) > dfunc = ([](T& q, R & item) {
+			q.mc_dequeue(item);
+		});
+		std::function<void(T&, R item) > efunc = ([](T& q, R item) {
+			q.mp_enqueue(item);
+		});
+		GenericTest(params, dfunc, efunc, args...);
+	}
 
     template<typename T, typename R, typename... Args>
     typename std::enable_if_t<std::is_base_of<bk_conq::unbounded_queue<R>, T>::value>
