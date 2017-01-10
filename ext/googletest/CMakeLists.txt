@@ -9,6 +9,9 @@ if(MINGW)
     set(gtest_disable_pthreads ON CACHE BOOL "" FORCE)
 endif()
 
+################################################################
+# Load
+################################################################
 set(GTEST_PATH ${CMAKE_BINARY_DIR}/ext/googletest)
 if(NOT EXISTS ${GTEST_PATH}/src)
 	execute_process(
