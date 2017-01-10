@@ -28,27 +28,26 @@ public:
 	void sp_enqueue(R&& input) {
 		static_assert(std::is_base_of<bk_conq::unbounded_queue<std::decay<R>::type>, T>::value, "T must be an unbounded queue");
 		T::sp_enqueue(std::forward<R>(input));
-		if (waitingReaders.load(std::memory_order_acquire)) _cv.notify_one();
+		_cv.notify_one();
 	}
 
 	template <typename R>
 	void mp_enqueue(R&& input) {
 		static_assert(std::is_base_of<bk_conq::unbounded_queue<std::decay<R>::type>, T>::value, "T must be an unbounded queue");
 		T::mp_enqueue(std::forward<R>(input));
-		if (waitingReaders.load(std::memory_order_acquire)) _cv.notify_one();
+		_cv.notify_one();
 	}
     
 	template <typename R>
 	bool try_sc_dequeue(R& output) {
 		static_assert(std::is_base_of<bk_conq::unbounded_queue<R>, T>::value, "T must be an unbounded queue");
-		if (T::sc_dequeue(output)) return;
+		return (T::sc_dequeue(output));
 	}
 
 	template <typename R>
 	void sc_dequeue(R& output) {
 		static_assert(std::is_base_of<bk_conq::unbounded_queue<R>, T>::value, "T must be an unbounded queue");
 		if (T::sc_dequeue(output)) return;
-		waitingReaders.fetch_add(1, std::memory_order_release);
 		std::unique_lock<std::mutex> lock(_m);
 		while (!T::sc_dequeue(output)){
 		    _cv.wait(lock);
@@ -58,14 +57,13 @@ public:
 	template <typename R>
 	bool try_mc_dequeue(R& output) {
 		static_assert(std::is_base_of<bk_conq::unbounded_queue<R>, T>::value, "T must be an unbounded queue");
-		if (T::mc_dequeue(output)) return;
+		return (T::mc_dequeue(output));
 	}
     
 	template <typename R>
 	void mc_dequeue(R& output) {
 		static_assert(std::is_base_of<bk_conq::unbounded_queue<R>, T>::value, "T must be an unbounded queue");
 		if (T::mc_dequeue(output)) return;
-		waitingReaders.fetch_add(1, std::memory_order_release);
 		std::unique_lock<std::mutex> lock(_m);
 		while (!T::mc_dequeue(output)) {
 			_cv.wait(lock);
@@ -75,7 +73,6 @@ public:
 private:
 	std::mutex _m;
 	std::condition_variable _cv;
-    std::atomic<size_t> waitingReaders{0};
 };
 }//namespace bk_conq
 

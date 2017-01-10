@@ -9,11 +9,6 @@ using ::testing::Types;
 using std::cout;
 using std::endl;
 
-namespace{
-    const size_t BOUNDED_QUEUE_SIZE = 2097152u;
-    const size_t SUBQUEUE_SIZE = 32u;
-}
-
 std::ostream& operator<<(std::ostream& os, const std::chrono::duration<double>& t) {
     double val;
     if ((val = std::chrono::duration<double>(t).count()) > 1.0){
@@ -81,98 +76,106 @@ void QueueTest::TearDown(){
 }
 
 TEST_P(QueueTest, list_queue_busy){
-    QueueTest::BusyTest<bk_conq::list_queue<uint64_t>, uint64_t>(_params);
+    QueueTest::BusyTest<bk_conq::list_queue<queue_test_type_t>, queue_test_type_t>(_params);
 }
 
 TEST_P(QueueTest, array_queue_busy){
-    QueueTest::BusyTest<bk_conq::array_queue<uint64_t, BOUNDED_QUEUE_SIZE>, uint64_t>(_params);
+    QueueTest::BusyTest<bk_conq::array_queue<queue_test_type_t, BOUNDED_QUEUE_SIZE>, queue_test_type_t>(_params);
 }
 
 TEST_P(QueueTest, vector_queue_busy){
-    QueueTest::BusyTest<bk_conq::vector_queue<uint64_t>, uint64_t>(_params, BOUNDED_QUEUE_SIZE);
+    QueueTest::BusyTest<bk_conq::vector_queue<queue_test_type_t>, queue_test_type_t>(_params, BOUNDED_QUEUE_SIZE);
 }
 
 TEST_P(QueueTest, cache_queue_busy){
-    QueueTest::BusyTest<bk_conq::cache_queue<uint64_t, BOUNDED_QUEUE_SIZE>, uint64_t>(_params);
+    QueueTest::BusyTest<bk_conq::cache_queue<queue_test_type_t, BOUNDED_QUEUE_SIZE>, queue_test_type_t>(_params);
 }
 
 TEST_P(QueueTest, multilist_array_queue_busy){
-    QueueTest::BusyTest<bk_conq::multilist_array_queue<uint64_t, SUBQUEUE_SIZE>, uint64_t>(_params);
+    QueueTest::BusyTest<bk_conq::multilist_array_queue<queue_test_type_t, SUBQUEUE_SIZE>, queue_test_type_t>(_params);
 }
 
 TEST_P(QueueTest, multilist_vector_queue_busy){
-    QueueTest::BusyTest<bk_conq::multilist_vector_queue<uint64_t>, uint64_t>(_params, SUBQUEUE_SIZE);
+    QueueTest::BusyTest<bk_conq::multilist_vector_queue<queue_test_type_t>, queue_test_type_t>(_params, SUBQUEUE_SIZE);
 }
 
 TEST_P(QueueTest, list_queue_sleep){
-    QueueTest::SleepTest<bk_conq::list_queue<uint64_t>, uint64_t>(_params);
+    QueueTest::SleepTest<bk_conq::list_queue<queue_test_type_t>, queue_test_type_t>(_params);
 }
 
 TEST_P(QueueTest, array_queue_sleep){
-    QueueTest::SleepTest<bk_conq::array_queue<uint64_t, BOUNDED_QUEUE_SIZE>, uint64_t>(_params);
+    QueueTest::SleepTest<bk_conq::array_queue<queue_test_type_t, BOUNDED_QUEUE_SIZE>, queue_test_type_t>(_params);
 }
 
 TEST_P(QueueTest, vector_queue_sleep){
-    QueueTest::SleepTest<bk_conq::vector_queue<uint64_t>, uint64_t>(_params, BOUNDED_QUEUE_SIZE);
+    QueueTest::SleepTest<bk_conq::vector_queue<queue_test_type_t>, queue_test_type_t>(_params, BOUNDED_QUEUE_SIZE);
 }
 
 TEST_P(QueueTest, cache_queue_sleep){
-    QueueTest::SleepTest<bk_conq::cache_queue<uint64_t, BOUNDED_QUEUE_SIZE>, uint64_t>(_params);
+    QueueTest::SleepTest<bk_conq::cache_queue<queue_test_type_t, BOUNDED_QUEUE_SIZE>, queue_test_type_t>(_params);
 }
 
 TEST_P(QueueTest, multilist_array_queue_sleep){
-    QueueTest::SleepTest<bk_conq::multilist_array_queue<uint64_t, SUBQUEUE_SIZE>, uint64_t>(_params);
+    QueueTest::SleepTest<bk_conq::multilist_array_queue<queue_test_type_t, SUBQUEUE_SIZE>, queue_test_type_t>(_params);
 }
 
 TEST_P(QueueTest, multilist_vector_queue_sleep){
-    QueueTest::SleepTest<bk_conq::multilist_vector_queue<uint64_t>, uint64_t>(_params, SUBQUEUE_SIZE);
+    QueueTest::SleepTest<bk_conq::multilist_vector_queue<queue_test_type_t>, queue_test_type_t>(_params, SUBQUEUE_SIZE);
 }
 
 TEST_P(QueueTest, list_queue_backoff){
-    QueueTest::BackoffTest<bk_conq::list_queue<uint64_t>, uint64_t>(_params);
+    QueueTest::BackoffTest<bk_conq::list_queue<queue_test_type_t>, queue_test_type_t>(_params);
 }
 
 TEST_P(QueueTest, array_queue_backoff){
-    QueueTest::BackoffTest<bk_conq::array_queue<uint64_t, BOUNDED_QUEUE_SIZE>, uint64_t>(_params);
+    QueueTest::BackoffTest<bk_conq::array_queue<queue_test_type_t, BOUNDED_QUEUE_SIZE>, queue_test_type_t>(_params);
 }
 
 TEST_P(QueueTest, vector_queue_backoff){
-    QueueTest::BackoffTest<bk_conq::vector_queue<uint64_t>, uint64_t>(_params, BOUNDED_QUEUE_SIZE);
+    QueueTest::BackoffTest<bk_conq::vector_queue<queue_test_type_t>, queue_test_type_t>(_params, BOUNDED_QUEUE_SIZE);
 }
 
 TEST_P(QueueTest, cache_queue_backoff){
-    QueueTest::BackoffTest<bk_conq::cache_queue<uint64_t, BOUNDED_QUEUE_SIZE>, uint64_t>(_params);
+    QueueTest::BackoffTest<bk_conq::cache_queue<queue_test_type_t, BOUNDED_QUEUE_SIZE>, queue_test_type_t>(_params);
 }
 
 TEST_P(QueueTest, multilist_array_queue_backoff){
-    QueueTest::BackoffTest<bk_conq::multilist_array_queue<uint64_t, SUBQUEUE_SIZE>, uint64_t>(_params);
+    QueueTest::BackoffTest<bk_conq::multilist_array_queue<queue_test_type_t, SUBQUEUE_SIZE>, queue_test_type_t>(_params);
 }
 
 TEST_P(QueueTest, multilist_vector_queue_backoff) {
-	QueueTest::BackoffTest<bk_conq::multilist_vector_queue<uint64_t>, uint64_t>(_params, SUBQUEUE_SIZE);
+	QueueTest::BackoffTest<bk_conq::multilist_vector_queue<queue_test_type_t>, queue_test_type_t>(_params, SUBQUEUE_SIZE);
 }
 
 TEST_P(QueueTest, list_queue_blocking) {
-	QueueTest::BlockingTest<bk_conq::blocking_unbounded_queue<bk_conq::list_queue<uint64_t> >, uint64_t>(_params);
+	QueueTest::BlockingTest<bk_conq::blocking_unbounded_queue<bk_conq::list_queue<queue_test_type_t> >, queue_test_type_t>(_params);
 }
 
 TEST_P(QueueTest, cache_queue_blocking) {
-	QueueTest::BlockingTest<bk_conq::blocking_unbounded_queue<bk_conq::cache_queue<uint64_t, BOUNDED_QUEUE_SIZE>>, uint64_t>(_params);
+	QueueTest::BlockingTest<bk_conq::blocking_unbounded_queue<bk_conq::cache_queue<queue_test_type_t, BOUNDED_QUEUE_SIZE>>, queue_test_type_t>(_params);
 }
 
 TEST_P(QueueTest, multilist_array_queue_blocking) {
-	QueueTest::BlockingTest<bk_conq::blocking_unbounded_queue<bk_conq::multilist_array_queue<uint64_t, BOUNDED_QUEUE_SIZE>>, uint64_t>(_params);
+	QueueTest::BlockingTest<bk_conq::blocking_unbounded_queue<bk_conq::multilist_array_queue<queue_test_type_t, BOUNDED_QUEUE_SIZE>>, queue_test_type_t>(_params);
 }
 
 TEST_P(QueueTest, multilist_vector_queue_blocking) {
-	QueueTest::BlockingTest<bk_conq::blocking_unbounded_queue<bk_conq::multilist_vector_queue<uint64_t>>, uint64_t>(_params, SUBQUEUE_SIZE);
+	QueueTest::BlockingTest<bk_conq::blocking_unbounded_queue<bk_conq::multilist_vector_queue<queue_test_type_t>>, queue_test_type_t>(_params, SUBQUEUE_SIZE);
+}
+
+TEST_P(QueueTest, array_queue_blocking) {
+	QueueTest::BlockingTest<bk_conq::blocking_bounded_queue<bk_conq::array_queue<queue_test_type_t, SUBQUEUE_SIZE>>, queue_test_type_t>(_params);
+}
+
+TEST_P(QueueTest, vector_queue_blocking) {
+	QueueTest::BlockingTest<bk_conq::blocking_bounded_queue<bk_conq::vector_queue<queue_test_type_t>>, queue_test_type_t>(_params, SUBQUEUE_SIZE);
 }
 
 INSTANTIATE_TEST_CASE_P(
         queue_benchmark,
         QueueTest,
         testing::Combine(
-        Values(1, 2, 4, 8, 16, 32), //readers
+        Values(1, 2, 4, 8, 16, 32, 256), //readers
         Values(1, 2, 4, 8, 16, 32, 256), //writers
         Values(1e6, 1e7, 1e8, 1e9) //elements
         )

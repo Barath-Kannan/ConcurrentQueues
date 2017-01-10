@@ -16,6 +16,7 @@
 #include <bk_conq/multilist_array_queue.hpp>
 #include <bk_conq/multilist_vector_queue.hpp>
 #include <bk_conq/blocking_unbounded_queue.hpp>
+#include <bk_conq/blocking_bounded_queue.hpp>
 #include "basic_timer.h"
 
 struct TestParameters {
@@ -24,9 +25,30 @@ struct TestParameters {
     uint32_t nElements;
 };
 
+namespace {
+	const size_t BOUNDED_QUEUE_SIZE = 2097152u;
+	//const size_t BOUNDED_QUEUE_SIZE = 131072u;
+	const size_t SUBQUEUE_SIZE = 32u;
+	//const size_t PADDING_SIZE = 1024u;
+	const size_t PADDING_SIZE = 8u;
+}
+struct BigThing {
+	size_t value;
+	//char padding[PADDING_SIZE];
+	void operator=(const size_t& v) {
+		value = v;
+	}
+	BigThing(const size_t& v) {
+		value = v;
+	}
+	BigThing() {}
+};
+
 class QueueTest : public testing::Test,
 public testing::WithParamInterface< ::testing::tuple<uint32_t, uint32_t, uint32_t> > {
 public:
+	typedef BigThing queue_test_type_t;
+
     virtual void SetUp();
     virtual void TearDown();
 
@@ -42,7 +64,7 @@ protected:
         for (size_t i = 0; i < params.nReaders; ++i) {
             l.emplace_back([&, i]() {
                 readers[i].start();
-                uint64_t res;
+				queue_test_type_t res;
                 for (size_t j = 0; j < _params.nElements / _params.nReaders; ++j) {
                     dequeueOperation(q, res);
                 }
@@ -77,6 +99,18 @@ protected:
 
 	template<typename T, typename R, typename... Args>
 	typename std::enable_if_t<std::is_base_of<bk_conq::unbounded_queue<R>, T>::value>
+		BlockingTest(TestParameters params, Args&&... args) {
+		std::function<void(T&, R & item) > dfunc = ([](T& q, R & item) {
+			q.mc_dequeue(item);
+		});
+		std::function<void(T&, R item) > efunc = ([](T& q, R item) {
+			q.mp_enqueue(item);
+		});
+		GenericTest(params, dfunc, efunc, args...);
+	}
+
+	template<typename T, typename R, typename... Args>
+	typename std::enable_if_t<std::is_base_of<bk_conq::bounded_queue<R>, T>::value>
 		BlockingTest(TestParameters params, Args&&... args) {
 		std::function<void(T&, R & item) > dfunc = ([](T& q, R & item) {
 			q.mc_dequeue(item);

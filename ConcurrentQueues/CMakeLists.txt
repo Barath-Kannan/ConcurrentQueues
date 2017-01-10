@@ -17,6 +17,7 @@ set(MAIN_HEADERS
 	inc/bk_conq/multilist_vector_queue.hpp
 	inc/bk_conq/unbounded_queue.hpp
 	inc/bk_conq/blocking_unbounded_queue.hpp
+	inc/bk_conq/blocking_bounded_queue.hpp
 	inc/bk_conq/vector_queue.hpp
 )
 
@@ -52,9 +53,8 @@ target_include_directories(${PROJECT_NAME}_tester
     PUBLIC inc
 )
 target_link_libraries(${PROJECT_NAME}_tester
-    GTest::gtest
-    GTest::gtest_main
+    gtest
+    gtest_main
 )
 
 add_test(AllTestsInTester ${PROJECT_NAME}_tester)
-
