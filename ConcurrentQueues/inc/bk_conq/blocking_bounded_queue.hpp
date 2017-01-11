@@ -1,4 +1,4 @@
-/* 
+/*
  * File:   blocking_bounded_queue.hpp
  * Author: Barath Kannan
  * Template for a blocking unbounded producer consumer queue
@@ -13,17 +13,17 @@
 #include <condition_variable>
 #include <atomic>
 
-namespace bk_conq{
+namespace bk_conq {
 template<typename T>
-class blocking_bounded_queue : private T{
+class blocking_bounded_queue : private T {
 public:
 
 	blocking_bounded_queue() : T() {}
 
 	blocking_bounded_queue(size_t subqueues) : T(subqueues) {}
 
-    virtual ~blocking_bounded_queue(){};
-    
+	virtual ~blocking_bounded_queue() {};
+
 	template <typename R>
 	bool try_sp_enqueue(R&& input) {
 		static_assert(std::is_base_of<bk_conq::bounded_queue<std::decay<R>::type>, T>::value, "T must be a bounded queue");
@@ -67,7 +67,7 @@ public:
 		}
 		_cv.notify_one();
 	}
-    
+
 	template <typename R>
 	bool try_sc_dequeue(R& output) {
 		static_assert(std::is_base_of<bk_conq::bounded_queue<R>, T>::value, "T must be a bounded queue");
@@ -99,7 +99,7 @@ public:
 		}
 		return false;
 	}
-    
+
 	template <typename R>
 	void mc_dequeue(R& output) {
 		static_assert(std::is_base_of<bk_conq::bounded_queue<R>, T>::value, "T must be a bounded queue");

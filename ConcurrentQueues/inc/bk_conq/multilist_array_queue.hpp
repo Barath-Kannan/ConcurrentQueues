@@ -1,4 +1,4 @@
-/* 
+/*
  * File:   multilist_array_queue.hpp
  * Author: Barath Kannan
  * Array of unbounded list queues. Enqueue operations are assigned a subqueue,
@@ -21,58 +21,58 @@
 #include <bk_conq/unbounded_queue.hpp>
 #include <bk_conq/list_queue.hpp>
 
-namespace bk_conq{
+namespace bk_conq {
 template <typename T, size_t SUBQUEUES>
-class multilist_array_queue : public unbounded_queue<T>{
+class multilist_array_queue : public unbounded_queue<T> {
 public:
-    multilist_array_queue(){}    
-    multilist_array_queue(const multilist_array_queue&) = delete;
-    void operator=(const multilist_array_queue&) = delete;
-    
-    void sp_enqueue(T&& input){
-        return sp_enqueue_forward(std::move(input));
-    }
-    
-    void sp_enqueue(const T& input){
-        return sp_enqueue_forward(input);
-    }
-    
-    void mp_enqueue(T&& input){
-        return mp_enqueue_forward(std::move(input));
-    }
-    
-    void mp_enqueue(const T& input){
-        return mp_enqueue_forward(input);
-    }
-    
-    bool sc_dequeue(T& output){
+	multilist_array_queue() {}
+	multilist_array_queue(const multilist_array_queue&) = delete;
+	void operator=(const multilist_array_queue&) = delete;
+
+	void sp_enqueue(T&& input) {
+		return sp_enqueue_forward(std::move(input));
+	}
+
+	void sp_enqueue(const T& input) {
+		return sp_enqueue_forward(input);
+	}
+
+	void mp_enqueue(T&& input) {
+		return mp_enqueue_forward(std::move(input));
+	}
+
+	void mp_enqueue(const T& input) {
+		return mp_enqueue_forward(input);
+	}
+
+	bool sc_dequeue(T& output) {
 		thread_local static std::array<size_t, SUBQUEUES> hitlist = hitlist_sequence();
-        for (auto it = hitlist.begin(); it != hitlist.end(); ++it){
-            if (_q[*it].sc_dequeue(output)){
-                for (auto it2 = hitlist.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
-                return true;
-            }
-        }
-        return false;
-    }
-    
-    bool mc_dequeue(T& output){
+		for (auto it = hitlist.begin(); it != hitlist.end(); ++it) {
+			if (_q[*it].sc_dequeue(output)) {
+				for (auto it2 = hitlist.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
+				return true;
+			}
+		}
+		return false;
+	}
+
+	bool mc_dequeue(T& output) {
 		thread_local static std::array<size_t, SUBQUEUES> hitlist = hitlist_sequence();
-        for (auto it = hitlist.begin(); it != hitlist.end(); ++it){
-            if (_q[*it].mc_dequeue_light(output)){
-                for (auto it2 = hitlist.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
-                return true;
-            }
-        }
-        for (auto it = hitlist.begin(); it != hitlist.end(); ++it){
-            if (_q[*it].mc_dequeue(output)){
-                for (auto it2 = hitlist.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
-                return true;
-            }
-        }
-        return false;
-    }
-    
+		for (auto it = hitlist.begin(); it != hitlist.end(); ++it) {
+			if (_q[*it].mc_dequeue_light(output)) {
+				for (auto it2 = hitlist.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
+				return true;
+			}
+		}
+		for (auto it = hitlist.begin(); it != hitlist.end(); ++it) {
+			if (_q[*it].mc_dequeue(output)) {
+				for (auto it2 = hitlist.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
+				return true;
+			}
+		}
+		return false;
+	}
+
 private:
 	std::array<size_t, SUBQUEUES> hitlist_sequence() {
 		std::array<size_t, SUBQUEUES> hitlist;
@@ -80,20 +80,20 @@ private:
 		return hitlist;
 	}
 
-    template <typename U>
-    void sp_enqueue_forward(U&& input){
-        thread_local static size_t indx{_enqueue_indx.fetch_add(1)%SUBQUEUES};
-        _q[indx].mp_enqueue(std::forward<U>(input));
-    }
-    
-    template <typename U>
-    void mp_enqueue_forward(U&& input){
-        thread_local static size_t indx{_enqueue_indx.fetch_add(1)%SUBQUEUES};
-        _q[indx].mp_enqueue(std::forward<U>(input));
-    }
-    
-    std::array<list_queue<T>, SUBQUEUES>    _q;
-    std::atomic<size_t>                     _enqueue_indx{0};
+	template <typename U>
+	void sp_enqueue_forward(U&& input) {
+		thread_local static size_t indx{ _enqueue_indx.fetch_add(1) % SUBQUEUES };
+		_q[indx].mp_enqueue(std::forward<U>(input));
+	}
+
+	template <typename U>
+	void mp_enqueue_forward(U&& input) {
+		thread_local static size_t indx{ _enqueue_indx.fetch_add(1) % SUBQUEUES };
+		_q[indx].mp_enqueue(std::forward<U>(input));
+	}
+
+	std::array<list_queue<T>, SUBQUEUES>    _q;
+	std::atomic<size_t>                     _enqueue_indx{ 0 };
 };
 }//namespace bk_conq
 
