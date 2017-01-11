@@ -18,6 +18,4 @@ if(NOT EXISTS ${GTEST_PATH}/src)
 		COMMAND git clone -b release-1.8.0 https://github.com/google/googletest ${GTEST_PATH}/src
 	)
 endif()
-if(NOT TARGET gtest)
-	add_subdirectory(${GTEST_PATH}/src ${GTEST_PATH}/build)
-endif()
+add_subdirectory(${GTEST_PATH}/src ${GTEST_PATH}/build EXCLUDE_FROM_ALL)

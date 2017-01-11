@@ -25,6 +25,16 @@ public:
     virtual ~blocking_bounded_queue(){};
     
 	template <typename R>
+	bool try_sp_enqueue(R&& input) {
+		static_assert(std::is_base_of<bk_conq::bounded_queue<std::decay<R>::type>, T>::value, "T must be a bounded queue");
+		if (T::sp_enqueue(std::forward<R>(input))) {
+			_cv.notify_one();
+			return true;
+		}
+		return false;
+	}
+
+	template <typename R>
 	void sp_enqueue(R&& input) {
 		static_assert(std::is_base_of<bk_conq::bounded_queue<std::decay<R>::type>, T>::value, "T must be a bounded queue");
 		if (!T::sp_enqueue(std::forward<R>(input))) {
@@ -34,6 +44,16 @@ public:
 			}
 		}
 		_cv.notify_one();
+	}
+
+	template <typename R>
+	bool try_mp_enqueue(R&& input) {
+		static_assert(std::is_base_of<bk_conq::bounded_queue<std::decay<R>::type>, T>::value, "T must be a bounded queue");
+		if (T::mp_enqueue(std::forward<R>(input))) {
+			_cv.notify_one();
+			return true;
+		}
+		return false;
 	}
 
 	template <typename R>

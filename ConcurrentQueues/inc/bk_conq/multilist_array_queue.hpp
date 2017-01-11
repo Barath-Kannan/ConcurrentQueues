@@ -46,8 +46,7 @@ public:
     }
     
     bool sc_dequeue(T& output){
-        thread_local static std::array<size_t, SUBQUEUES> hitlist{{SUBQUEUES}};
-        if (hitlist[0] == SUBQUEUES) std::iota(hitlist.begin(), hitlist.end(), 0);
+		thread_local static std::array<size_t, SUBQUEUES> hitlist = hitlist_sequence();
         for (auto it = hitlist.begin(); it != hitlist.end(); ++it){
             if (_q[*it].sc_dequeue(output)){
                 for (auto it2 = hitlist.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
@@ -58,8 +57,7 @@ public:
     }
     
     bool mc_dequeue(T& output){
-        thread_local static std::array<size_t, SUBQUEUES> hitlist{{SUBQUEUES}};
-        if (hitlist[0] == SUBQUEUES) std::iota(hitlist.begin(), hitlist.end(), 0);
+		thread_local static std::array<size_t, SUBQUEUES> hitlist = hitlist_sequence();
         for (auto it = hitlist.begin(); it != hitlist.end(); ++it){
             if (_q[*it].mc_dequeue_light(output)){
                 for (auto it2 = hitlist.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
@@ -76,7 +74,12 @@ public:
     }
     
 private:
-    
+	std::array<size_t, SUBQUEUES> hitlist_sequence() {
+		std::array<size_t, SUBQUEUES> hitlist;
+		std::iota(hitlist.begin(), hitlist.end(), 0);
+		return hitlist;
+	}
+
     template <typename U>
     void sp_enqueue_forward(U&& input){
         thread_local static size_t indx{_enqueue_indx.fetch_add(1)%SUBQUEUES};

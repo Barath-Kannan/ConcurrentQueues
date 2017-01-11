@@ -15,6 +15,7 @@
 
 #include <atomic>
 #include <thread>
+#include <initializer_list>
 #include <bk_conq/unbounded_queue.hpp>
 
 namespace bk_conq{
@@ -100,6 +101,9 @@ private:
     struct list_node_t{
         T data;
         std::atomic<list_node_t*> next{nullptr};
+		template<typename R>
+		list_node_t(R&& input) : data(input){}
+		list_node_t() {}
     };
     
     inline void freelist_enqueue(list_node_t *item){
@@ -120,8 +124,7 @@ private:
     inline list_node_t *acquire_or_allocate(U&& input){
         list_node_t *node = freelist_try_dequeue();
         if (!node){
-            node = new list_node_t;
-            node->data = std::forward<U>(input);
+			node = new list_node_t{ std::forward<U>(input) };
         }
         else{
             node->data = std::forward<U>(input);
