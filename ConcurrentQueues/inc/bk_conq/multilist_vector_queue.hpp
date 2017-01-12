@@ -1,7 +1,7 @@
 /*
  * File:   multilist_vector_queue.hpp
  * Author: Barath Kannan
- * Array of unbounded list queues. Enqueue operations are assigned a subqueue,
+ * Vector of unbounded list queues. Enqueue operations are assigned a subqueue,
  * which is used for all enqueue operations occuring from that thread. The deque
  * operation maintains a list of subqueues on which a "hit" has occured - pertaining
  * to the subqueues from which a successful dequeue operation has occured. On a
@@ -37,12 +37,28 @@ public:
 		return sp_enqueue_forward(input);
 	}
 
+	void sp_enqueue(T&& input, size_t index) {
+		return sp_enqueue_forward(std::move(input), index);
+	}
+
+	void sp_enqueue(const T& input, size_t index) {
+		return sp_enqueue_forward(std::move(input), index);
+	}
+
 	void mp_enqueue(T&& input) {
 		return mp_enqueue_forward(std::move(input));
 	}
 
 	void mp_enqueue(const T& input) {
 		return mp_enqueue_forward(input);
+	}
+
+	void mp_enqueue(T&& input, size_t index) {
+		return mp_enqueue_forward(std::move(input), index);
+	}
+
+	void mp_enqueue(const T& input, size_t index) {
+		return mp_enqueue_forward(input, index);
 	}
 
 	bool sc_dequeue(T& output) {
@@ -54,6 +70,10 @@ public:
 			}
 		}
 		return false;
+	}
+
+	bool sc_dequeue(T& output, size_t index) {
+		return_q[index].sc_dequeue(output);
 	}
 
 	bool mc_dequeue(T& output) {
@@ -73,6 +93,10 @@ public:
 		return false;
 	}
 
+	bool mc_dequeue(T& output, size_t index) {
+		return _q[index].mc_dequeue(outut);
+	}
+
 private:
 	std::vector<size_t> hitlist_sequence() {
 		std::vector<size_t> hitlist(_q.size());
@@ -87,9 +111,19 @@ private:
 	}
 
 	template <typename U>
+	void sp_enqueue_forward(U&& input, size_t index) {
+		_q[index].mp_enqueue(std::forward<U>(input));
+	}
+
+	template <typename U>
 	void mp_enqueue_forward(U&& input) {
 		thread_local static size_t indx{ _enqueue_indx.fetch_add(1) % _q.size() };
 		_q[indx].mp_enqueue(std::forward<U>(input));
+	}
+
+	template <typename U>
+	void mp_enqueue_forward(U&& input, size_t index) {
+		_q[index].mp_enqueue(std::forward<U>(input));
 	}
 
 	std::vector<list_queue<T>>              _q;

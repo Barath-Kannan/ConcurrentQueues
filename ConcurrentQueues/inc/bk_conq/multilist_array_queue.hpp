@@ -37,12 +37,28 @@ public:
 		return sp_enqueue_forward(input);
 	}
 
+	void sp_enqueue(T&& input, size_t index) {
+		return sp_enqueue_forward(std::move(input), index);
+	}
+
+	void sp_enqueue(const T& input, size_t index) {
+		return sp_enqueue_forward(std::move(input), index);
+	}
+
 	void mp_enqueue(T&& input) {
 		return mp_enqueue_forward(std::move(input));
 	}
 
 	void mp_enqueue(const T& input) {
 		return mp_enqueue_forward(input);
+	}
+
+	void mp_enqueue(T&& input, size_t index) {
+		return mp_enqueue_forward(std::move(input), index);
+	}
+
+	void mp_enqueue(const T& input, size_t index) {
+		return mp_enqueue_forward(input, index);
 	}
 
 	bool sc_dequeue(T& output) {
@@ -87,9 +103,19 @@ private:
 	}
 
 	template <typename U>
+	void sp_enqueue_forward(U&& input, size_t index) {
+		_q[index].mp_enqueue(std::forward<U>(input));
+	}
+
+	template <typename U>
 	void mp_enqueue_forward(U&& input) {
 		thread_local static size_t indx{ _enqueue_indx.fetch_add(1) % SUBQUEUES };
 		_q[indx].mp_enqueue(std::forward<U>(input));
+	}
+
+	template <typename U>
+	void mp_enqueue_forward(U&& input, size_t index) {
+		_q[index].mp_enqueue(std::forward<U>(input));
 	}
 
 	std::array<list_queue<T>, SUBQUEUES>    _q;

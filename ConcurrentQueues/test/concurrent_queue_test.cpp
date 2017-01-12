@@ -2,6 +2,7 @@
 #include <iostream>
 #include <chrono>
 #include <type_traits>
+#include <queue>
 
 using ::testing::Values;
 using ::testing::Combine;
