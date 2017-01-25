@@ -73,7 +73,7 @@ public:
 	}
 
 	bool sc_dequeue(T& output, size_t index) {
-		return_q[index].sc_dequeue(output);
+		return _q[index].sc_dequeue(output);
 	}
 
 	bool mc_dequeue(T& output) {
