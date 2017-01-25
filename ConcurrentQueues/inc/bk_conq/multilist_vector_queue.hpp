@@ -94,7 +94,7 @@ public:
 	}
 
 	bool mc_dequeue(T& output, size_t index) {
-		return _q[index].mc_dequeue(outut);
+		return _q[index].mc_dequeue(output);
 	}
 
 private:

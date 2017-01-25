@@ -12,6 +12,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <atomic>
+#include <type_traits>
 
 namespace bk_conq {
 template<typename T>
@@ -26,7 +27,7 @@ public:
 
 	template <typename R>
 	bool try_sp_enqueue(R&& input) {
-		static_assert(std::is_base_of<bk_conq::bounded_queue<std::decay<R>::type>, T>::value, "T must be a bounded queue");
+		static_assert(std::is_base_of<bk_conq::bounded_queue<typename std::decay<R>::type>, T>::value, "T must be a bounded queue");
 		if (T::sp_enqueue(std::forward<R>(input))) {
 			_cv.notify_one();
 			return true;
@@ -36,7 +37,7 @@ public:
 
 	template <typename R>
 	void sp_enqueue(R&& input) {
-		static_assert(std::is_base_of<bk_conq::bounded_queue<std::decay<R>::type>, T>::value, "T must be a bounded queue");
+		static_assert(std::is_base_of<bk_conq::bounded_queue<typename std::decay<R>::type>, T>::value, "T must be a bounded queue");
 		if (!T::sp_enqueue(std::forward<R>(input))) {
 			std::unique_lock<std::mutex> lock(_m2);
 			while (!T::sp_enqueue(std::forward<R>(input))) {
@@ -48,7 +49,7 @@ public:
 
 	template <typename R>
 	bool try_mp_enqueue(R&& input) {
-		static_assert(std::is_base_of<bk_conq::bounded_queue<std::decay<R>::type>, T>::value, "T must be a bounded queue");
+		static_assert(std::is_base_of<bk_conq::bounded_queue<typename std::decay<R>::type>, T>::value, "T must be a bounded queue");
 		if (T::mp_enqueue(std::forward<R>(input))) {
 			_cv.notify_one();
 			return true;
@@ -58,7 +59,7 @@ public:
 
 	template <typename R>
 	void mp_enqueue(R&& input) {
-		static_assert(std::is_base_of<bk_conq::bounded_queue<std::decay<R>::type>, T>::value, "T must be a bounded queue");
+		static_assert(std::is_base_of<bk_conq::bounded_queue<typename std::decay<R>::type>, T>::value, "T must be a bounded queue");
 		if (!T::mp_enqueue(std::forward<R>(input))) {
 			std::unique_lock<std::mutex> lock(_m2);
 			while (!T::mp_enqueue(std::forward<R>(input))) {

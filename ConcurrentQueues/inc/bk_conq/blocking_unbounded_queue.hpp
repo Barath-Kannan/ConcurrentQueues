@@ -12,6 +12,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <atomic>
+#include <type_traits>
 
 namespace bk_conq {
 template<typename T>
@@ -26,14 +27,14 @@ public:
 
 	template <typename R>
 	void sp_enqueue(R&& input) {
-		static_assert(std::is_base_of<bk_conq::unbounded_queue<std::decay<R>::type>, T>::value, "T must be an unbounded queue");
+		static_assert(std::is_base_of<bk_conq::unbounded_queue<typename std::decay<R>::type>, T>::value, "T must be an unbounded queue");
 		T::sp_enqueue(std::forward<R>(input));
 		_cv.notify_one();
 	}
 
 	template <typename R>
 	void mp_enqueue(R&& input) {
-		static_assert(std::is_base_of<bk_conq::unbounded_queue<std::decay<R>::type>, T>::value, "T must be an unbounded queue");
+		static_assert(std::is_base_of<bk_conq::unbounded_queue<typename std::decay<R>::type>, T>::value, "T must be an unbounded queue");
 		T::mp_enqueue(std::forward<R>(input));
 		_cv.notify_one();
 	}
