@@ -172,6 +172,46 @@ TEST_P(QueueTest, vector_queue_blocking) {
 	QueueTest::BlockingTest<bk_conq::blocking_bounded_queue<bk_conq::vector_queue<queue_test_type_t>>, queue_test_type_t>(_params, SUBQUEUE_SIZE);
 }
 
+TEST_P(QueueTest, untemplated) {
+	bk_conq::multilist_vector_queue<queue_test_type_t> q(SUBQUEUE_SIZE);
+	std::vector<std::thread> l;
+	for (size_t i = 0; i < _params.nReaders; ++i) {
+		l.emplace_back([&, i]() {
+			readers[i].start();
+			queue_test_type_t res;
+			for (size_t j = 0; j < _params.nElements / _params.nReaders; ++j) {
+				while (!q.mc_dequeue(res));
+			}
+			if (i == 0) {
+				size_t remainder = _params.nElements - ((_params.nElements / _params.nReaders) * _params.nReaders);
+				for (size_t j = 0; j < remainder; ++j) {
+					while (!q.mc_dequeue(res));
+				}
+			}
+			readers[i].stop();
+		});
+	}
+	for (size_t i = 0; i < _params.nWriters; ++i) {
+		l.emplace_back([&, i]() {
+			writers[i].start();
+			for (size_t j = 0; j < _params.nElements / _params.nWriters; ++j) {
+				q.mp_enqueue(j);
+			}
+			if (i == 0) {
+				size_t remainder = _params.nElements - ((_params.nElements / _params.nWriters) * _params.nWriters);
+				for (size_t j = 0; j < remainder; ++j) {
+					q.mp_enqueue(j);
+				}
+			}
+			writers[i].stop();
+		});
+	}
+	for (size_t i = 0; i < _params.nReaders + _params.nWriters; ++i) {
+		l[i].join();
+	}
+
+}
+
 INSTANTIATE_TEST_CASE_P(
         queue_benchmark,
         QueueTest,
