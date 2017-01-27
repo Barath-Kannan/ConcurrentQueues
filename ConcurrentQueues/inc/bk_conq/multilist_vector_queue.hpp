@@ -126,13 +126,12 @@ private:
 		_q[index].mp_enqueue(std::forward<U>(input));
 	}
 
-	template <typename T>
 	class padded_list_queue : public list_queue<T> {
 		char padding[64];
 	};
 
-	std::vector<padded_list_queue<T>>              _q;
-	std::atomic<size_t>                     _enqueue_indx{ 0 };
+	std::vector<padded_list_queue> _q;
+	std::atomic<size_t> _enqueue_indx{ 0 };
 };
 }//namespace bk_conq
 
