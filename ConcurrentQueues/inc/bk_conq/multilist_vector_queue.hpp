@@ -62,7 +62,7 @@ public:
 	}
 
 	bool sc_dequeue(T& output) {
-		thread_local static std::vector<size_t> hitlist = hitlist_sequence();
+		thread_local static auto hitlist = hitlist_sequence();
 		for (auto it = hitlist.begin(); it != hitlist.end(); ++it) {
 			if (_q[*it].sc_dequeue(output)) {
 				for (auto it2 = hitlist.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
@@ -77,7 +77,7 @@ public:
 	}
 
 	bool mc_dequeue(T& output) {
-		thread_local static std::vector<size_t> hitlist = hitlist_sequence();
+		thread_local static auto hitlist = hitlist_sequence();
 		for (auto it = hitlist.begin(); it != hitlist.end(); ++it) {
 			if (_q[*it].mc_dequeue_light(output)) {
 				for (auto it2 = hitlist.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
@@ -126,7 +126,12 @@ private:
 		_q[index].mp_enqueue(std::forward<U>(input));
 	}
 
-	std::vector<list_queue<T>>              _q;
+	template <typename T>
+	class padded_list_queue : public list_queue<T> {
+		char padding[64];
+	};
+
+	std::vector<padded_list_queue<T>>              _q;
 	std::atomic<size_t>                     _enqueue_indx{ 0 };
 };
 }//namespace bk_conq
