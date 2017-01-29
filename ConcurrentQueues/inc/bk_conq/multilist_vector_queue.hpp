@@ -25,7 +25,7 @@ namespace bk_conq {
 template <typename T>
 class multilist_vector_queue : public unbounded_queue<T> {
 public:
-	multilist_vector_queue(size_t subqueues) : _q{ subqueues } {}
+	multilist_vector_queue(size_t subqueues) : _q(subqueues) {}
 	multilist_vector_queue(const multilist_vector_queue&) = delete;
 	void operator=(const multilist_vector_queue&) = delete;
 
