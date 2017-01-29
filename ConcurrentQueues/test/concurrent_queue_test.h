@@ -9,6 +9,7 @@
 #define CONCURRENT_QUEUE_TEST_H
 
 #include <gtest/gtest.h>
+#include <iostream>
 #include <bk_conq/array_queue.hpp>
 #include <bk_conq/vector_queue.hpp>
 #include <bk_conq/list_queue.hpp>
@@ -17,6 +18,8 @@
 #include <bk_conq/multilist_vector_queue.hpp>
 #include <bk_conq/blocking_unbounded_queue.hpp>
 #include <bk_conq/blocking_bounded_queue.hpp>
+#include <bk_conq/multiarray_queue.hpp>
+#include <bk_conq/multivector_queue.hpp>
 #include "basic_timer.h"
 
 struct TestParameters {
@@ -26,11 +29,11 @@ struct TestParameters {
 };
 
 namespace {
-	const size_t BOUNDED_QUEUE_SIZE = 2097152u;
-	//const size_t BOUNDED_QUEUE_SIZE = 131072u;
+	//const size_t BOUNDED_QUEUE_SIZE = 2'097'152u;
+	const size_t BOUNDED_QUEUE_SIZE = 131'072u;
 	const size_t SUBQUEUE_SIZE = 32u;
-	//const size_t PADDING_SIZE = 1024u;
-	const size_t PADDING_SIZE = 8u;
+	const size_t PADDING_SIZE = 256u;
+	//const size_t PADDING_SIZE = 8u;
 }
 struct BigThing {
 	size_t value;
@@ -56,10 +59,12 @@ protected:
     std::vector<basic_timer> readers;
     std::vector<basic_timer> writers;
     TestParameters _params;
+	std::thread _monitorThread;
+	std::atomic<bool> _doneFlag;
 
     template<typename T, typename R, typename ...Args>
     void GenericTest(TestParameters params, std::function<void(T&, R&) > dequeueOperation, std::function<void(T&, R) > enqueueOperation, Args... args) {
-        static T q{args...};
+        static T q(args...);
         std::vector<std::thread> l;
         for (size_t i = 0; i < params.nReaders; ++i) {
             l.emplace_back([&, i]() {

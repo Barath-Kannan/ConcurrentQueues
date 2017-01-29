@@ -15,6 +15,8 @@ set(MAIN_HEADERS
 	inc/bk_conq/list_queue.hpp
 	inc/bk_conq/multilist_array_queue.hpp
 	inc/bk_conq/multilist_vector_queue.hpp
+	inc/bk_conq/multiarray_queue.hpp
+	inc/bk_conq/multivector_queue.hpp
 	inc/bk_conq/unbounded_queue.hpp
 	inc/bk_conq/blocking_unbounded_queue.hpp
 	inc/bk_conq/blocking_bounded_queue.hpp

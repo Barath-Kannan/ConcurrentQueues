@@ -19,9 +19,8 @@ template<typename T>
 class blocking_bounded_queue : private T {
 public:
 
-	blocking_bounded_queue() : T() {}
-
-	blocking_bounded_queue(size_t subqueues) : T(subqueues) {}
+	template <typename... Args>
+	blocking_bounded_queue(Args&&... args) : T(args...) {}
 
 	virtual ~blocking_bounded_queue() {};
 

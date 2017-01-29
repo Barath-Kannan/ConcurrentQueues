@@ -18,10 +18,8 @@ namespace bk_conq {
 template<typename T>
 class blocking_unbounded_queue : private T {
 public:
-
-	blocking_unbounded_queue() : T() {}
-
-	blocking_unbounded_queue(size_t subqueues) : T(subqueues) {}
+	template <typename... Args>
+	blocking_unbounded_queue(Args&&... args) : T(args...) {}
 
 	virtual ~blocking_unbounded_queue() {};
 

@@ -84,8 +84,16 @@ TEST_P(QueueTest, array_queue_busy){
     QueueTest::BusyTest<bk_conq::array_queue<queue_test_type_t, BOUNDED_QUEUE_SIZE>, queue_test_type_t>(_params);
 }
 
-TEST_P(QueueTest, vector_queue_busy){
-    QueueTest::BusyTest<bk_conq::vector_queue<queue_test_type_t>, queue_test_type_t>(_params, BOUNDED_QUEUE_SIZE);
+TEST_P(QueueTest, multiarray_queue_busy) {
+	QueueTest::BusyTest<bk_conq::multiarray_queue<queue_test_type_t, BOUNDED_QUEUE_SIZE, SUBQUEUE_SIZE>, queue_test_type_t>(_params);
+}
+
+TEST_P(QueueTest, vector_queue_busy) {
+	QueueTest::BusyTest<bk_conq::vector_queue<queue_test_type_t>, queue_test_type_t>(_params, BOUNDED_QUEUE_SIZE);
+}
+
+TEST_P(QueueTest, multivector_queue_busy) {
+	QueueTest::BusyTest<bk_conq::multivector_queue<queue_test_type_t>, queue_test_type_t>(_params, BOUNDED_QUEUE_SIZE, SUBQUEUE_SIZE);
 }
 
 TEST_P(QueueTest, cache_queue_busy){
@@ -108,8 +116,16 @@ TEST_P(QueueTest, array_queue_sleep){
     QueueTest::SleepTest<bk_conq::array_queue<queue_test_type_t, BOUNDED_QUEUE_SIZE>, queue_test_type_t>(_params);
 }
 
+TEST_P(QueueTest, multiarray_queue_sleep) {
+	QueueTest::SleepTest<bk_conq::multiarray_queue<queue_test_type_t, BOUNDED_QUEUE_SIZE, SUBQUEUE_SIZE>, queue_test_type_t>(_params);
+}
+
 TEST_P(QueueTest, vector_queue_sleep){
     QueueTest::SleepTest<bk_conq::vector_queue<queue_test_type_t>, queue_test_type_t>(_params, BOUNDED_QUEUE_SIZE);
+}
+
+TEST_P(QueueTest, multivector_queue_sleep) {
+	QueueTest::SleepTest<bk_conq::multivector_queue<queue_test_type_t>, queue_test_type_t>(_params, BOUNDED_QUEUE_SIZE, SUBQUEUE_SIZE);
 }
 
 TEST_P(QueueTest, cache_queue_sleep){
@@ -128,12 +144,20 @@ TEST_P(QueueTest, list_queue_backoff){
     QueueTest::BackoffTest<bk_conq::list_queue<queue_test_type_t>, queue_test_type_t>(_params);
 }
 
-TEST_P(QueueTest, array_queue_backoff){
-    QueueTest::BackoffTest<bk_conq::array_queue<queue_test_type_t, BOUNDED_QUEUE_SIZE>, queue_test_type_t>(_params);
+TEST_P(QueueTest, array_queue_backoff) {
+	QueueTest::BackoffTest<bk_conq::array_queue<queue_test_type_t, BOUNDED_QUEUE_SIZE>, queue_test_type_t>(_params);
+}
+
+TEST_P(QueueTest, multiarray_queue_backoff) {
+	QueueTest::BackoffTest<bk_conq::multiarray_queue<queue_test_type_t, BOUNDED_QUEUE_SIZE, SUBQUEUE_SIZE>, queue_test_type_t>(_params);
 }
 
 TEST_P(QueueTest, vector_queue_backoff){
     QueueTest::BackoffTest<bk_conq::vector_queue<queue_test_type_t>, queue_test_type_t>(_params, BOUNDED_QUEUE_SIZE);
+}
+
+TEST_P(QueueTest, multivector_queue_backoff) {
+	QueueTest::BackoffTest<bk_conq::multivector_queue<queue_test_type_t>, queue_test_type_t>(_params, BOUNDED_QUEUE_SIZE, SUBQUEUE_SIZE);
 }
 
 TEST_P(QueueTest, cache_queue_backoff){
@@ -168,48 +192,16 @@ TEST_P(QueueTest, array_queue_blocking) {
 	QueueTest::BlockingTest<bk_conq::blocking_bounded_queue<bk_conq::array_queue<queue_test_type_t, SUBQUEUE_SIZE>>, queue_test_type_t>(_params);
 }
 
+TEST_P(QueueTest, multiarray_queue_blocking) {
+	QueueTest::BlockingTest<bk_conq::blocking_bounded_queue<bk_conq::multiarray_queue<queue_test_type_t, BOUNDED_QUEUE_SIZE, SUBQUEUE_SIZE>>, queue_test_type_t>(_params);
+}
+
 TEST_P(QueueTest, vector_queue_blocking) {
 	QueueTest::BlockingTest<bk_conq::blocking_bounded_queue<bk_conq::vector_queue<queue_test_type_t>>, queue_test_type_t>(_params, SUBQUEUE_SIZE);
 }
 
-TEST_P(QueueTest, untemplated) {
-	bk_conq::multilist_vector_queue<queue_test_type_t> q(SUBQUEUE_SIZE);
-	std::vector<std::thread> l;
-	for (size_t i = 0; i < _params.nReaders; ++i) {
-		l.emplace_back([&, i]() {
-			readers[i].start();
-			queue_test_type_t res;
-			for (size_t j = 0; j < _params.nElements / _params.nReaders; ++j) {
-				while (!q.mc_dequeue(res));
-			}
-			if (i == 0) {
-				size_t remainder = _params.nElements - ((_params.nElements / _params.nReaders) * _params.nReaders);
-				for (size_t j = 0; j < remainder; ++j) {
-					while (!q.mc_dequeue(res));
-				}
-			}
-			readers[i].stop();
-		});
-	}
-	for (size_t i = 0; i < _params.nWriters; ++i) {
-		l.emplace_back([&, i]() {
-			writers[i].start();
-			for (size_t j = 0; j < _params.nElements / _params.nWriters; ++j) {
-				q.mp_enqueue(j);
-			}
-			if (i == 0) {
-				size_t remainder = _params.nElements - ((_params.nElements / _params.nWriters) * _params.nWriters);
-				for (size_t j = 0; j < remainder; ++j) {
-					q.mp_enqueue(j);
-				}
-			}
-			writers[i].stop();
-		});
-	}
-	for (size_t i = 0; i < _params.nReaders + _params.nWriters; ++i) {
-		l[i].join();
-	}
-
+TEST_P(QueueTest, multivector_queue_blocking) {
+	QueueTest::BlockingTest<bk_conq::blocking_bounded_queue<bk_conq::multivector_queue<queue_test_type_t>>, queue_test_type_t>(_params, BOUNDED_QUEUE_SIZE, SUBQUEUE_SIZE);
 }
 
 INSTANTIATE_TEST_CASE_P(
