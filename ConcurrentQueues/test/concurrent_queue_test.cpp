@@ -80,6 +80,14 @@ TEST_P(QueueTest, list_queue_busy){
     QueueTest::BusyTest<bk_conq::list_queue<queue_test_type_t>, queue_test_type_t>(_params);
 }
 
+TEST_P(QueueTest, bounded_list_queue_busy) {
+	QueueTest::BusyTest<bk_conq::bounded_list_queue<queue_test_type_t>, queue_test_type_t>(_params, BOUNDED_QUEUE_SIZE);
+}
+
+TEST_P(QueueTest, multibounded_list_vector_queue_busy) {
+	QueueTest::BusyTest<bk_conq::multibounded_list_vector_queue<queue_test_type_t>, queue_test_type_t>(_params, BOUNDED_QUEUE_SIZE, SUBQUEUE_SIZE);
+}
+
 TEST_P(QueueTest, array_queue_busy){
     QueueTest::BusyTest<bk_conq::array_queue<queue_test_type_t, BOUNDED_QUEUE_SIZE>, queue_test_type_t>(_params);
 }
@@ -112,6 +120,10 @@ TEST_P(QueueTest, list_queue_sleep){
     QueueTest::SleepTest<bk_conq::list_queue<queue_test_type_t>, queue_test_type_t>(_params);
 }
 
+TEST_P(QueueTest, bounded_list_queue_sleep) {
+	QueueTest::SleepTest<bk_conq::bounded_list_queue<queue_test_type_t>, queue_test_type_t>(_params, BOUNDED_QUEUE_SIZE);
+}
+
 TEST_P(QueueTest, array_queue_sleep){
     QueueTest::SleepTest<bk_conq::array_queue<queue_test_type_t, BOUNDED_QUEUE_SIZE>, queue_test_type_t>(_params);
 }
@@ -142,6 +154,10 @@ TEST_P(QueueTest, multilist_vector_queue_sleep){
 
 TEST_P(QueueTest, list_queue_backoff){
     QueueTest::BackoffTest<bk_conq::list_queue<queue_test_type_t>, queue_test_type_t>(_params);
+}
+
+TEST_P(QueueTest, bounded_list_queue_backoff) {
+	QueueTest::BackoffTest<bk_conq::bounded_list_queue<queue_test_type_t>, queue_test_type_t>(_params, BOUNDED_QUEUE_SIZE);
 }
 
 TEST_P(QueueTest, array_queue_backoff) {
@@ -186,6 +202,10 @@ TEST_P(QueueTest, multilist_array_queue_blocking) {
 
 TEST_P(QueueTest, multilist_vector_queue_blocking) {
 	QueueTest::BlockingTest<bk_conq::blocking_unbounded_queue<bk_conq::multilist_vector_queue<queue_test_type_t>>, queue_test_type_t>(_params, SUBQUEUE_SIZE);
+}
+
+TEST_P(QueueTest, bounded_list_queue_blocking) {
+	QueueTest::BlockingTest<bk_conq::blocking_bounded_queue<bk_conq::bounded_list_queue<queue_test_type_t>>, queue_test_type_t>(_params, BOUNDED_QUEUE_SIZE);
 }
 
 TEST_P(QueueTest, array_queue_blocking) {

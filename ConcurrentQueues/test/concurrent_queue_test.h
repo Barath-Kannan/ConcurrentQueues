@@ -20,6 +20,8 @@
 #include <bk_conq/blocking_bounded_queue.hpp>
 #include <bk_conq/multiarray_queue.hpp>
 #include <bk_conq/multivector_queue.hpp>
+#include <bk_conq/bounded_list_queue.hpp>
+#include <bk_conq/multibounded_list_vector_queue.hpp>
 #include "basic_timer.h"
 
 struct TestParameters {
@@ -169,7 +171,8 @@ protected:
     SleepTest(TestParameters params, Args&&... args){
         std::function<void(T&, R & item) > dfunc = ([](T& q, R & item) {
             while (!q.mc_dequeue(item)){
-                std::this_thread::sleep_for(std::chrono::nanoseconds(10));
+				std::this_thread::yield();
+                //std::this_thread::sleep_for(std::chrono::nanoseconds(10));
             }
         });
         std::function<void(T&, R item) > efunc = ([](T& q, R item) {

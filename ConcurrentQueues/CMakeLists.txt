@@ -21,6 +21,8 @@ set(MAIN_HEADERS
 	inc/bk_conq/blocking_unbounded_queue.hpp
 	inc/bk_conq/blocking_bounded_queue.hpp
 	inc/bk_conq/vector_queue.hpp
+	inc/bk_conq/bounded_list_queue.hpp
+	inc/bk_conq/multibounded_list_vector_queue.hpp
 )
 
 set(TEST_HEADERS

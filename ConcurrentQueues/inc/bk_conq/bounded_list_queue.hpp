@@ -1,57 +1,56 @@
 /*
- * File:   list_queue.hpp
+ * File:   bounded_list_queue.hpp
  * Author: Barath Kannan
- * This is an unbounded multi-producer multi-consumer queue.
+ * This is an bounded multi-producer multi-consumer queue.
  * It can also be used as any combination of single-producer and single-consumer
  * queues for additional performance gains in those contexts. The queue is implemented
  * as a linked list, where nodes are stored in a freelist after being dequeued.
- * Enqueue operations will either acquire items from the freelist or allocate a
- * new node if none are available.
- * Created on 27 August 2016, 11:30 PM
+ * Enqueue operations will attempt to acquire items from the freelist or return false
+ * if no node is available.
+ * Created on 30 January 2017, 08:36 PM
  */
 
-#ifndef BK_CONQ_LISTQUEUE_HPP
-#define BK_CONQ_LISTQUEUE_HPP
+#ifndef BK_CONQ_BOUNDEDLISTQUEUE_HPP
+#define BK_CONQ_BOUNDEDLISTQUEUE_HPP
 
 #include <atomic>
 #include <thread>
 #include <initializer_list>
-#include <bk_conq/unbounded_queue.hpp>
+#include <bk_conq/bounded_queue.hpp>
 
 namespace bk_conq {
 template<typename T>
-class list_queue : public unbounded_queue<T> {
+class bounded_list_queue : public bounded_queue<T> {
 public:
-	list_queue() {
-		_free_list_tail.store(_free_list_head.load(std::memory_order_relaxed), std::memory_order_relaxed);
+	bounded_list_queue(size_t N) : _data(N){
+		_free_list_head.store(&_data[1], std::memory_order_relaxed);
+		_free_list_tail.store(_free_list_head.load(std::memory_order_relaxed));
+		for (size_t i = 2; i < N; ++i) {
+			list_node_t* tail = &_data[i];
+			tail->next.store(_free_list_tail.load(std::memory_order_relaxed));
+			_free_list_tail.store(tail);
+		}
 	}
 
-	virtual ~list_queue() {
-		T output;
-		while (this->sc_dequeue(output));
-		list_node_t* front = _head.load(std::memory_order_relaxed);
-		delete front;
-		for (list_node_t *front = freelist_try_dequeue(); front != nullptr; front = freelist_try_dequeue()) delete front;
-		front = _free_list_head.load(std::memory_order_relaxed);
-		delete front;
+	virtual ~bounded_list_queue() {
 	}
 
-	list_queue(const list_queue&) = delete;
-	void operator=(const list_queue&) = delete;
+	bounded_list_queue(const bounded_list_queue&) = delete;
+	void operator=(const bounded_list_queue&) = delete;
 
-	void sp_enqueue(T&& input) {
+	bool sp_enqueue(T&& input) {
 		return sp_enqueue_forward(std::move(input));
 	}
 
-	void sp_enqueue(const T& input) {
+	bool sp_enqueue(const T& input) {
 		return sp_enqueue_forward(input);
 	}
 
-	void mp_enqueue(T&& input) {
+	bool mp_enqueue(T&& input) {
 		return mp_enqueue_forward(std::move(input));
 	}
 
-	void mp_enqueue(const T& input) {
+	bool mp_enqueue(const T& input) {
 		return mp_enqueue_forward(input);
 	}
 
@@ -135,25 +134,35 @@ private:
 	}
 
 	template <typename U>
-	void sp_enqueue_forward(U&& input) {
-		list_node_t *node = acquire_or_allocate(std::forward<U>(input));
+	bool sp_enqueue_forward(U&& input) {
+		list_node_t *node = freelist_try_dequeue();
+		if (!node) return false;
+		node->data = std::forward<U>(input);
+		node->next.store(nullptr, std::memory_order_relaxed);
 		_head.load(std::memory_order_relaxed)->next.store(node, std::memory_order_release);
 		_head.store(node, std::memory_order_relaxed);
+		return true;
 	}
 
 	template <typename U>
-	void mp_enqueue_forward(U&& input) {
-		list_node_t *node = acquire_or_allocate(std::forward<U>(input));
+	bool mp_enqueue_forward(U&& input) {
+		list_node_t *node = freelist_try_dequeue();
+		if (!node) return false;
+		node->data = std::forward<U>(input);
+		node->next.store(nullptr, std::memory_order_relaxed);
 		list_node_t* prev_head = _head.exchange(node, std::memory_order_acq_rel);
 		prev_head->next.store(node, std::memory_order_release);
+		return true;
 	}
 
-	std::atomic<list_node_t*>   _head{ new list_node_t };
-	std::atomic<list_node_t*>   _free_list_tail;
+	std::vector<list_node_t>	_data;
+	char                        _padding2[64];
+	std::atomic<list_node_t*>   _head{ &_data[0] };
+	std::atomic<list_node_t*>   _free_list_tail{ nullptr };
 	char                        _padding[64];
 	std::atomic<list_node_t*>   _tail{ _head.load(std::memory_order_relaxed) };
-	std::atomic<list_node_t*>   _free_list_head{ new list_node_t };
+	std::atomic<list_node_t*>   _free_list_head{ nullptr };
 };
 }//namespace bk_conq
 
-#endif /* BK_CONQ_LISTQUEUE_HPP */
+#endif /* BK_CONQ_BOUNDEDLISTQUEUE_HPP */

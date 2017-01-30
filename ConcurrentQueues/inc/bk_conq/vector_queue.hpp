@@ -24,7 +24,7 @@ template<typename T>
 class vector_queue : public bounded_queue<T> {
 public:
 
-	vector_queue(size_t N) : _buffer{ N } {
+	vector_queue(size_t N) : _buffer(N) {
 		if ((N == 0) || ((N & (~N + 1)) != N)) {
 			throw std::length_error("size of vector_queue must be power of 2");
 		}
