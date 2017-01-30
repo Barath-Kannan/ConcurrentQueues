@@ -109,10 +109,11 @@ protected:
 	typename std::enable_if_t<std::is_base_of<bk_conq::unbounded_queue, T>::value>
 	TemplatedTest(TestParameters params, Args&&... args) {
 		std::function<void(T&, R & item) > dfunc = ([testType = params.testType](T& q, R & item) {
+			auto wait_time = std::chrono::nanoseconds(1);
 			switch (testType) {
 				case BUSY_TEST: while (!q.mc_dequeue(item)); break;
 				case SLEEP_TEST: while (!q.mc_dequeue(item)) { std::this_thread::sleep_for(std::chrono::nanoseconds(10)); } break;
-				case BACKOFF_TEST: auto wait_time = std::chrono::nanoseconds(1); while (!q.mc_dequeue(item)) { std::this_thread::sleep_for(wait_time); wait_time *= 2; } break;
+				case BACKOFF_TEST: while (!q.mc_dequeue(item)) { std::this_thread::sleep_for(wait_time); wait_time *= 2; } break;
 				default: break;
 			}
 		});
@@ -128,19 +129,21 @@ protected:
 	typename std::enable_if_t<std::is_base_of<bk_conq::bounded_queue, T>::value>
 	TemplatedTest(TestParameters params, Args&&... args) {
 		std::function<void(T&, R & item) > dfunc = ([testType = params.testType](T& q, R & item) {
+			auto wait_time = std::chrono::nanoseconds(1); 
 			switch (testType) {
 				case BUSY_TEST:  while (!q.mc_dequeue(item)); break;
 				case SLEEP_TEST: while (!q.mc_dequeue(item)) { std::this_thread::sleep_for(std::chrono::nanoseconds(10)); } break;
-				case BACKOFF_TEST: auto wait_time = std::chrono::nanoseconds(1); while (!q.mc_dequeue(item)) { std::this_thread::sleep_for(wait_time); wait_time *= 2; } break;
+				case BACKOFF_TEST: while (!q.mc_dequeue(item)) { std::this_thread::sleep_for(wait_time); wait_time *= 2; } break;
 				default: break;
 			}
 			
 		});
 		std::function<void(T&, R item) > efunc = ([testType = params.testType](T& q, R item) {
+			auto wait_time = std::chrono::nanoseconds(1);
 			switch (testType) {
 				case(BUSY_TEST):  while (!q.mp_enqueue(item)); break;
 				case(SLEEP_TEST): while (!q.mp_enqueue(item)) { std::this_thread::sleep_for(std::chrono::nanoseconds(10)); } break;
-				case(BACKOFF_TEST): auto wait_time = std::chrono::nanoseconds(1); while (!q.mp_enqueue(item)) { std::this_thread::sleep_for(wait_time); wait_time *= 2; } break;
+				case(BACKOFF_TEST): while (!q.mp_enqueue(item)) { std::this_thread::sleep_for(wait_time); wait_time *= 2; } break;
 				default: break;
 			}
 		});
