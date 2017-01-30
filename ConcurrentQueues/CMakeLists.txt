@@ -9,20 +9,16 @@ set(CMAKE_CXX_STANDARD 14)
 # Files
 ################################################
 set(MAIN_HEADERS
-	inc/bk_conq/array_queue.hpp
 	inc/bk_conq/bounded_queue.hpp
-	inc/bk_conq/cache_queue.hpp
 	inc/bk_conq/list_queue.hpp
-	inc/bk_conq/multilist_array_queue.hpp
-	inc/bk_conq/multilist_vector_queue.hpp
-	inc/bk_conq/multiarray_queue.hpp
 	inc/bk_conq/multivector_queue.hpp
 	inc/bk_conq/unbounded_queue.hpp
 	inc/bk_conq/blocking_unbounded_queue.hpp
 	inc/bk_conq/blocking_bounded_queue.hpp
 	inc/bk_conq/vector_queue.hpp
 	inc/bk_conq/bounded_list_queue.hpp
-	inc/bk_conq/multibounded_list_vector_queue.hpp
+	inc/bk_conq/multi_bounded_queue.hpp
+	inc/bk_conq/multi_unbounded_queue.hpp
 )
 
 set(TEST_HEADERS

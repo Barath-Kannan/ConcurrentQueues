@@ -19,33 +19,31 @@ template<typename T>
 class blocking_unbounded_queue : private T {
 public:
 	template <typename... Args>
-	blocking_unbounded_queue(Args&&... args) : T(args...) {}
+	blocking_unbounded_queue(Args&&... args) : T(args...) {
+		static_assert(std::is_base_of<bk_conq::unbounded_queue, T>::value, "T must be an unbounded queue");
+	}
 
 	virtual ~blocking_unbounded_queue() {};
 
 	template <typename R>
 	void sp_enqueue(R&& input) {
-		static_assert(std::is_base_of<bk_conq::unbounded_queue<typename std::decay<R>::type>, T>::value, "T must be an unbounded queue");
 		T::sp_enqueue(std::forward<R>(input));
 		_cv.notify_one();
 	}
 
 	template <typename R>
 	void mp_enqueue(R&& input) {
-		static_assert(std::is_base_of<bk_conq::unbounded_queue<typename std::decay<R>::type>, T>::value, "T must be an unbounded queue");
 		T::mp_enqueue(std::forward<R>(input));
 		_cv.notify_one();
 	}
 
 	template <typename R>
 	bool try_sc_dequeue(R& output) {
-		static_assert(std::is_base_of<bk_conq::unbounded_queue<R>, T>::value, "T must be an unbounded queue");
 		return (T::sc_dequeue(output));
 	}
 
 	template <typename R>
 	void sc_dequeue(R& output) {
-		static_assert(std::is_base_of<bk_conq::unbounded_queue<R>, T>::value, "T must be an unbounded queue");
 		if (T::sc_dequeue(output)) return;
 		std::unique_lock<std::mutex> lock(_m);
 		while (!T::sc_dequeue(output)) {
@@ -55,13 +53,11 @@ public:
 
 	template <typename R>
 	bool try_mc_dequeue(R& output) {
-		static_assert(std::is_base_of<bk_conq::unbounded_queue<R>, T>::value, "T must be an unbounded queue");
 		return (T::mc_dequeue(output));
 	}
 
 	template <typename R>
 	void mc_dequeue(R& output) {
-		static_assert(std::is_base_of<bk_conq::unbounded_queue<R>, T>::value, "T must be an unbounded queue");
 		if (T::mc_dequeue(output)) return;
 		std::unique_lock<std::mutex> lock(_m);
 		while (!T::mc_dequeue(output)) {

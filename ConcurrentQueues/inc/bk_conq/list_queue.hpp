@@ -20,7 +20,7 @@
 
 namespace bk_conq {
 template<typename T>
-class list_queue : public unbounded_queue<T> {
+class list_queue : public unbounded_queue{
 public:
 	list_queue() {
 		_free_list_tail.store(_free_list_head.load(std::memory_order_relaxed), std::memory_order_relaxed);
@@ -39,20 +39,18 @@ public:
 	list_queue(const list_queue&) = delete;
 	void operator=(const list_queue&) = delete;
 
-	void sp_enqueue(T&& input) {
-		return sp_enqueue_forward(std::move(input));
+	template <typename R>
+	void sp_enqueue(R&& input) {
+		list_node_t *node = acquire_or_allocate(std::forward<R>(input));
+		_head.load(std::memory_order_relaxed)->next.store(node, std::memory_order_release);
+		_head.store(node, std::memory_order_relaxed);
 	}
 
-	void sp_enqueue(const T& input) {
-		return sp_enqueue_forward(input);
-	}
-
-	void mp_enqueue(T&& input) {
-		return mp_enqueue_forward(std::move(input));
-	}
-
-	void mp_enqueue(const T& input) {
-		return mp_enqueue_forward(input);
+	template <typename R>
+	void mp_enqueue(R&& input) {
+		list_node_t *node = acquire_or_allocate(std::forward<R>(input));
+		list_node_t* prev_head = _head.exchange(node, std::memory_order_acq_rel);
+		prev_head->next.store(node, std::memory_order_release);
 	}
 
 	bool sc_dequeue(T& output) {
@@ -132,20 +130,6 @@ private:
 			node->next.store(nullptr, std::memory_order_relaxed);
 		}
 		return node;
-	}
-
-	template <typename U>
-	void sp_enqueue_forward(U&& input) {
-		list_node_t *node = acquire_or_allocate(std::forward<U>(input));
-		_head.load(std::memory_order_relaxed)->next.store(node, std::memory_order_release);
-		_head.store(node, std::memory_order_relaxed);
-	}
-
-	template <typename U>
-	void mp_enqueue_forward(U&& input) {
-		list_node_t *node = acquire_or_allocate(std::forward<U>(input));
-		list_node_t* prev_head = _head.exchange(node, std::memory_order_acq_rel);
-		prev_head->next.store(node, std::memory_order_release);
 	}
 
 	std::atomic<list_node_t*>   _head{ new list_node_t };

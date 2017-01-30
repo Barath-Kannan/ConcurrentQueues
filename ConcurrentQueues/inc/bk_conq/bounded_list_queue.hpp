@@ -20,7 +20,7 @@
 
 namespace bk_conq {
 template<typename T>
-class bounded_list_queue : public bounded_queue<T> {
+class bounded_list_queue : public bounded_queue {
 public:
 	bounded_list_queue(size_t N) : _data(N){
 		_free_list_head.store(&_data[1], std::memory_order_relaxed);
@@ -38,21 +38,29 @@ public:
 	bounded_list_queue(const bounded_list_queue&) = delete;
 	void operator=(const bounded_list_queue&) = delete;
 
-	bool sp_enqueue(T&& input) {
-		return sp_enqueue_forward(std::move(input));
+
+	template <typename R>
+	bool sp_enqueue(R&& input) {
+		list_node_t *node = freelist_try_dequeue();
+		if (!node) return false;
+		node->data = std::forward<R>(input);
+		node->next.store(nullptr, std::memory_order_relaxed);
+		_head.load(std::memory_order_relaxed)->next.store(node, std::memory_order_release);
+		_head.store(node, std::memory_order_relaxed);
+		return true;
 	}
 
-	bool sp_enqueue(const T& input) {
-		return sp_enqueue_forward(input);
+	template <typename R>
+	bool mp_enqueue(R&& input) {
+		list_node_t *node = freelist_try_dequeue();
+		if (!node) return false;
+		node->data = std::forward<R>(input);
+		node->next.store(nullptr, std::memory_order_relaxed);
+		list_node_t* prev_head = _head.exchange(node, std::memory_order_acq_rel);
+		prev_head->next.store(node, std::memory_order_release);
+		return true;
 	}
 
-	bool mp_enqueue(T&& input) {
-		return mp_enqueue_forward(std::move(input));
-	}
-
-	bool mp_enqueue(const T& input) {
-		return mp_enqueue_forward(input);
-	}
 
 	bool sc_dequeue(T& output) {
 		list_node_t* tail = _tail.load(std::memory_order_relaxed);
@@ -131,28 +139,6 @@ private:
 			node->next.store(nullptr, std::memory_order_relaxed);
 		}
 		return node;
-	}
-
-	template <typename U>
-	bool sp_enqueue_forward(U&& input) {
-		list_node_t *node = freelist_try_dequeue();
-		if (!node) return false;
-		node->data = std::forward<U>(input);
-		node->next.store(nullptr, std::memory_order_relaxed);
-		_head.load(std::memory_order_relaxed)->next.store(node, std::memory_order_release);
-		_head.store(node, std::memory_order_relaxed);
-		return true;
-	}
-
-	template <typename U>
-	bool mp_enqueue_forward(U&& input) {
-		list_node_t *node = freelist_try_dequeue();
-		if (!node) return false;
-		node->data = std::forward<U>(input);
-		node->next.store(nullptr, std::memory_order_relaxed);
-		list_node_t* prev_head = _head.exchange(node, std::memory_order_acq_rel);
-		prev_head->next.store(node, std::memory_order_release);
-		return true;
 	}
 
 	std::vector<list_node_t>	_data;

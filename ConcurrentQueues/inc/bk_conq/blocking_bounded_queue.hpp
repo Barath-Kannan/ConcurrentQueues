@@ -20,13 +20,14 @@ class blocking_bounded_queue : private T {
 public:
 
 	template <typename... Args>
-	blocking_bounded_queue(Args&&... args) : T(args...) {}
+	blocking_bounded_queue(Args&&... args) : T(args...) {
+		static_assert(std::is_base_of<bk_conq::bounded_queue, T>::value, "T must be a bounded queue");
+	}
 
 	virtual ~blocking_bounded_queue() {};
 
 	template <typename R>
 	bool try_sp_enqueue(R&& input) {
-		static_assert(std::is_base_of<bk_conq::bounded_queue<typename std::decay<R>::type>, T>::value, "T must be a bounded queue");
 		if (T::sp_enqueue(std::forward<R>(input))) {
 			_cv.notify_one();
 			return true;
@@ -36,7 +37,6 @@ public:
 
 	template <typename R>
 	void sp_enqueue(R&& input) {
-		static_assert(std::is_base_of<bk_conq::bounded_queue<typename std::decay<R>::type>, T>::value, "T must be a bounded queue");
 		if (!T::sp_enqueue(std::forward<R>(input))) {
 			std::unique_lock<std::mutex> lock(_m2);
 			while (!T::sp_enqueue(std::forward<R>(input))) {
@@ -48,7 +48,6 @@ public:
 
 	template <typename R>
 	bool try_mp_enqueue(R&& input) {
-		static_assert(std::is_base_of<bk_conq::bounded_queue<typename std::decay<R>::type>, T>::value, "T must be a bounded queue");
 		if (T::mp_enqueue(std::forward<R>(input))) {
 			_cv.notify_one();
 			return true;
@@ -58,7 +57,6 @@ public:
 
 	template <typename R>
 	void mp_enqueue(R&& input) {
-		static_assert(std::is_base_of<bk_conq::bounded_queue<typename std::decay<R>::type>, T>::value, "T must be a bounded queue");
 		if (!T::mp_enqueue(std::forward<R>(input))) {
 			std::unique_lock<std::mutex> lock(_m2);
 			while (!T::mp_enqueue(std::forward<R>(input))) {
@@ -70,7 +68,6 @@ public:
 
 	template <typename R>
 	bool try_sc_dequeue(R& output) {
-		static_assert(std::is_base_of<bk_conq::bounded_queue<R>, T>::value, "T must be a bounded queue");
 		if (T::sc_dequeue(output)) {
 			_cv2.notify_one();
 			return true;
@@ -80,7 +77,6 @@ public:
 
 	template <typename R>
 	void sc_dequeue(R& output) {
-		static_assert(std::is_base_of<bk_conq::bounded_queue<R>, T>::value, "T must be a bounded queue");
 		if (!T::sc_dequeue(output)) {
 			std::unique_lock<std::mutex> lock(_m);
 			while (!T::sc_dequeue(output)) {
@@ -92,7 +88,6 @@ public:
 
 	template <typename R>
 	bool try_mc_dequeue(R& output) {
-		static_assert(std::is_base_of<bk_conq::bounded_queue<R>, T>::value, "T must be a bounded queue");
 		if (T::mc_dequeue(output)) {
 			_cv2.notify_one();
 			return true;
@@ -102,7 +97,6 @@ public:
 
 	template <typename R>
 	void mc_dequeue(R& output) {
-		static_assert(std::is_base_of<bk_conq::bounded_queue<R>, T>::value, "T must be a bounded queue");
 		if (!T::mc_dequeue(output)) {
 			std::unique_lock<std::mutex> lock(_m);
 			while (!T::mc_dequeue(output)) {
