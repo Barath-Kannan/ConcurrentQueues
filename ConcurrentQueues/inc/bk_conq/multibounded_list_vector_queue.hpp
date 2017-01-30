@@ -61,7 +61,7 @@ public:
 	}
 
 	bool sc_dequeue(T& output) {
-		thread_local static auto hitlist = hitlist_sequence();
+		thread_local auto hitlist = hitlist_sequence();
 		for (auto it = hitlist.begin(); it != hitlist.end(); ++it) {
 			if (_q[*it]->sc_dequeue(output)) {
 				for (auto it2 = hitlist.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
@@ -98,7 +98,7 @@ private:
 
 	template <typename U>
 	bool sp_enqueue_forward(U&& input) {
-		thread_local static size_t index{ _enqueue_indx.fetch_add(1) % _q.size() };
+		thread_local size_t index{ _enqueue_indx.fetch_add(1) % _q.size() };
 		return _q[index]->mp_enqueue(std::forward<U>(input));
 	}
 
@@ -109,7 +109,7 @@ private:
 
 	template <typename U>
 	bool mp_enqueue_forward(U&& input) {
-		thread_local static size_t index{ _enqueue_indx.fetch_add(1) % _q.size() };
+		thread_local size_t index{ _enqueue_indx.fetch_add(1) % _q.size() };
 		return _q[index]->mp_enqueue(std::forward<U>(input));
 	}
 
