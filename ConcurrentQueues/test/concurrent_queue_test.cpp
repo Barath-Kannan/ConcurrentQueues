@@ -65,9 +65,9 @@ void QueueTest::TearDown(){
     writeDur/=toMeasure;
     cout << "Max write thread duration: " << writeMax << endl;
     cout << "Average write thread duration: " << writeDur << endl;
-    writeDur/=_params.nElements;
-    cout << "Average time per enqueue: " << writeDur << endl;
-    
+    cout << "Average time per enqueue: " << writeDur/_params.nElements << endl;
+	cout << "Enqueue ops/second: " << static_cast<double>(_params.nElements) / writeDur.count() << std::endl;
+
     cout << "Dequeue:" << endl;
     auto readDur = readers[0].getElapsedDuration();
     auto readMax = readers[0].getElapsedDuration();
@@ -83,8 +83,8 @@ void QueueTest::TearDown(){
     readDur/=toMeasure;
     cout << "Max read thread duration: " << readMax << endl;
     cout << "Average read thread duration: " << readDur << endl;
-    readDur/=_params.nElements;
-    cout << "Average time per dequeue: " << readDur << endl;
+    cout << "Average time per dequeue: " << readDur/_params.nElements << endl;
+	cout << "Dequeue ops/second: " << static_cast<double>(_params.nElements) / readDur.count() << std::endl;
 }
 
 namespace ListQueue{

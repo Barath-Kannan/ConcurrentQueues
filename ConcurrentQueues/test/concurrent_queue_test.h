@@ -57,7 +57,7 @@ protected:
             l.emplace_back([&, i]() {
                 readers[i].start();
 				queue_test_type_t res;
-                for (size_t j = 0; j < _params.nElements / _params.nReaders; ++j) {
+                for (volatile size_t j = 0; j < _params.nElements / _params.nReaders; ++j) {
                     dequeueOperation(q, res);
                 }
                 if (i == 0) {
@@ -72,7 +72,7 @@ protected:
         for (size_t i = 0; i < _params.nWriters; ++i) {
             l.emplace_back([&, i]() {
                 writers[i].start();
-                for (size_t j = 0; j < _params.nElements / _params.nWriters; ++j) {
+                for (volatile size_t j = 0; j < _params.nElements / _params.nWriters; ++j) {
                     enqueueOperation(q, j);
                 }
                 if (i == 0) {
@@ -139,7 +139,6 @@ protected:
 		GenericTest(dequeueFunction, enqueueFunction, args...);
 	}
 
-
 	template<typename T, typename R, typename ...Args>
 	typename std::enable_if_t<std::is_base_of<bk_conq::bounded_queue, T>::value>
 	TemplatedTest(Args&&... args) {
@@ -147,7 +146,6 @@ protected:
 		auto enqueueFunction = generateEnqueueFunctionNonblocking<T, R>();
 		GenericTest(dequeueFunction, enqueueFunction, _params.queueSize, args...);
 	}
-
 
 	template <typename T, typename R, typename... Args>
 	typename std::enable_if_t<std::is_base_of<bk_conq::unbounded_queue, T>::value>
