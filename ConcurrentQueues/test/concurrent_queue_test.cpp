@@ -65,8 +65,11 @@ void QueueTest::TearDown(){
     writeDur/=toMeasure;
     cout << "Max write thread duration: " << writeMax << endl;
     cout << "Average write thread duration: " << writeDur << endl;
-    cout << "Time per enqueue (worst case): " << writeMax/_params.nElements << endl;
+	cout << "Time per enqueue (average): " << writeDur / _params.nElements << endl;
+	cout << "Time per enqueue (worst case): " << writeMax / _params.nElements << endl;
+	cout << "Enqueue ops/second (average): " << static_cast<double>(_params.nElements) / writeDur.count() << std::endl;
 	cout << "Enqueue ops/second (worst case): " << static_cast<double>(_params.nElements) / writeMax.count() << std::endl;
+	cout << "Enqueue ops/second/thread (worst case): " << static_cast<double>(_params.nElements) / writeMax.count() / _params.nWriters << std::endl;
 
     cout << "Dequeue:" << endl;
     auto readDur = readers[0].getElapsedDuration();
@@ -83,8 +86,11 @@ void QueueTest::TearDown(){
     readDur/=toMeasure;
     cout << "Max read thread duration: " << readMax << endl;
     cout << "Average read thread duration: " << readDur << endl;
+	cout << "Time per dequeue (average case)" << readDur / _params.nElements << std::endl;
     cout << "Time per dequeue (worst case): " << readMax/_params.nElements << endl;
+	cout << "Dequeue ops/second (average case): " << static_cast<double>(_params.nElements) / readDur.count() << std::endl;
 	cout << "Dequeue ops/second (worst case): " << static_cast<double>(_params.nElements) / readMax.count() << std::endl;
+	cout << "Dequeue ops/second/thread (worst case): " << static_cast<double>(_params.nElements) / readMax.count() / _params.nReaders << std::endl;
 }
 
 namespace ListQueue{
