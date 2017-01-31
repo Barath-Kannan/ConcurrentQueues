@@ -21,38 +21,22 @@
 
 enum QueueTestType : uint32_t{
 	BUSY_TEST = 0,
-	SLEEP_TEST = 1,
-	BACKOFF_TEST = 2
+	YIELD_TEST = 1,
+	SLEEP_TEST = 2,
+	BACKOFF_TEST = 3
 };
 
 struct TestParameters {
     uint32_t nReaders;
     uint32_t nWriters;
     uint32_t nElements;
+	size_t queueSize;
+	size_t subqueueSize;
 	QueueTestType testType;
 };
 
-namespace {
-	//const size_t BOUNDED_QUEUE_SIZE = 2'097'152u;
-	const size_t BOUNDED_QUEUE_SIZE = 131'072u;
-	const size_t SUBQUEUE_SIZE = 32u;
-	const size_t PADDING_SIZE = 256u;
-	//const size_t PADDING_SIZE = 8u;
-}
-struct BigThing {
-	size_t value;
-	char padding[PADDING_SIZE];
-	void operator=(const size_t& v) {
-		value = v;
-	}
-	BigThing(const size_t& v) {
-		value = v;
-	}
-	BigThing() {}
-};
-
 class QueueTest : public testing::Test,
-public testing::WithParamInterface< ::testing::tuple<uint32_t, uint32_t, uint32_t, QueueTestType> > {
+public testing::WithParamInterface< ::testing::tuple<uint32_t, uint32_t, uint32_t, size_t, size_t, QueueTestType> > {
 public:
 	typedef size_t queue_test_type_t;
 
@@ -66,10 +50,10 @@ protected:
 	std::atomic<bool> _doneFlag;
 
     template<typename T, typename R, typename ...Args>
-    void GenericTest(TestParameters params, std::function<void(T&, R&) > dequeueOperation, std::function<void(T&, R) > enqueueOperation, Args... args) {
+    void GenericTest(std::function<void(T&, R&) > dequeueOperation, std::function<void(T&, R) > enqueueOperation, Args... args) {
 		static T q{ args... };
         std::vector<std::thread> l;
-        for (size_t i = 0; i < params.nReaders; ++i) {
+        for (size_t i = 0; i < _params.nReaders; ++i) {
             l.emplace_back([&, i]() {
                 readers[i].start();
 				queue_test_type_t res;
@@ -105,61 +89,80 @@ protected:
         }
     }
 
-	template<typename T, typename R, typename... Args>
-	typename std::enable_if_t<std::is_base_of<bk_conq::unbounded_queue, T>::value>
-	TemplatedTest(TestParameters params, Args&&... args) {
-		std::function<void(T&, R & item) > dfunc = ([testType = params.testType](T& q, R & item) {
+	template<typename T, typename R>
+	std::function<void(T&,R&)> generateDequeueFunctionNonblocking() {
+		return ([testType = _params.testType](T& q, R& item) {
 			auto wait_time = std::chrono::nanoseconds(1);
 			switch (testType) {
-				case BUSY_TEST: while (!q.mc_dequeue(item)); break;
-				case SLEEP_TEST: while (!q.mc_dequeue(item)) { std::this_thread::sleep_for(std::chrono::nanoseconds(10)); } break;
-				case BACKOFF_TEST: while (!q.mc_dequeue(item)) { std::this_thread::sleep_for(wait_time); wait_time *= 2; } break;
-				default: break;
+			case BUSY_TEST: while (!q.mc_dequeue(item)); break;
+			case YIELD_TEST: while (!q.mc_dequeue(item)) { std::this_thread::yield(); } break;
+			case SLEEP_TEST: while (!q.mc_dequeue(item)) { std::this_thread::sleep_for(std::chrono::nanoseconds(10)); } break;
+			case BACKOFF_TEST: while (!q.mc_dequeue(item)) { std::this_thread::sleep_for(wait_time); wait_time *= 2; } break;
+			default: break;
 			}
 		});
-		std::function<void(T&, R item) > efunc = ([](T& q, R item) {
-			q.mp_enqueue(item);
-			
+	}
+
+	template<typename T, typename R>
+	std::function<void(T&,R&)> generateDequeueFunctionBlocking() {
+		return ([](T& q, R& item) {
+			q.mc_dequeue(item);
 		});
-		GenericTest(params, dfunc, efunc, args...);
+	}
+
+	template<typename T, typename R>
+	std::function<void(T&,R)> generateEnqueueFunctionNonblocking() {
+		return ([testType = _params.testType](T& q, R item) {
+			auto wait_time = std::chrono::nanoseconds(1);
+			switch (testType) {
+			case BUSY_TEST: while (!q.mp_enqueue(item)); break;
+			case YIELD_TEST: while (!q.mp_enqueue(item)) { std::this_thread::yield(); } break;
+			case SLEEP_TEST: while (!q.mp_enqueue(item)) { std::this_thread::sleep_for(std::chrono::nanoseconds(10)); } break;
+			case BACKOFF_TEST: while (!q.mp_enqueue(item)) { std::this_thread::sleep_for(wait_time); wait_time *= 2; } break;
+			default: break;
+			}
+		});
+	}
+
+	template<typename T, typename R>
+	std::function<void(T&,R)> generateEnqueueFunctionBlocking() {
+		return ([](T& q, R item) {
+			q.mp_enqueue(item);
+		});
+	}
+
+	template<typename T, typename R, typename... Args>
+	typename std::enable_if_t<std::is_base_of<bk_conq::unbounded_queue, T>::value>
+	TemplatedTest(Args&&... args) {
+		auto dequeueFunction = generateDequeueFunctionNonblocking<T, R>();
+		auto enqueueFunction = generateEnqueueFunctionBlocking<T, R>();
+		GenericTest(dequeueFunction, enqueueFunction, args...);
 	}
 
 
 	template<typename T, typename R, typename ...Args>
 	typename std::enable_if_t<std::is_base_of<bk_conq::bounded_queue, T>::value>
-	TemplatedTest(TestParameters params, Args&&... args) {
-		std::function<void(T&, R & item) > dfunc = ([testType = params.testType](T& q, R & item) {
-			auto wait_time = std::chrono::nanoseconds(1); 
-			switch (testType) {
-				case BUSY_TEST:  while (!q.mc_dequeue(item)); break;
-				case SLEEP_TEST: while (!q.mc_dequeue(item)) { std::this_thread::sleep_for(std::chrono::nanoseconds(10)); } break;
-				case BACKOFF_TEST: while (!q.mc_dequeue(item)) { std::this_thread::sleep_for(wait_time); wait_time *= 2; } break;
-				default: break;
-			}
-			
-		});
-		std::function<void(T&, R item) > efunc = ([testType = params.testType](T& q, R item) {
-			auto wait_time = std::chrono::nanoseconds(1);
-			switch (testType) {
-				case(BUSY_TEST):  while (!q.mp_enqueue(item)); break;
-				case(SLEEP_TEST): while (!q.mp_enqueue(item)) { std::this_thread::sleep_for(std::chrono::nanoseconds(10)); } break;
-				case(BACKOFF_TEST): while (!q.mp_enqueue(item)) { std::this_thread::sleep_for(wait_time); wait_time *= 2; } break;
-				default: break;
-			}
-		});
-		GenericTest(params, dfunc, efunc, args...);
+	TemplatedTest(Args&&... args) {
+		auto dequeueFunction = generateDequeueFunctionNonblocking<T, R>();
+		auto enqueueFunction = generateEnqueueFunctionNonblocking<T, R>();
+		GenericTest(dequeueFunction, enqueueFunction, _params.queueSize, args...);
 	}
 
 
 	template <typename T, typename R, typename... Args>
-	void BlockingTest(TestParameters params, Args&&... args) {
-		std::function<void(T&, R & item) > dfunc = ([](T& q, R & item) {
-			q.mc_dequeue(item);
-		});
-		std::function<void(T&, R item) > efunc = ([](T& q, R item) {
-			q.mp_enqueue(item);
-		});
-		GenericTest(params, dfunc, efunc, args...);
+	typename std::enable_if_t<std::is_base_of<bk_conq::unbounded_queue, T>::value>
+	BlockingTest(Args&&... args) {
+		auto dequeueFunction = generateDequeueFunctionBlocking<T, R>();
+		auto enqueueFunction = generateEnqueueFunctionBlocking<T, R>();
+		GenericTest(dequeueFunction, enqueueFunction, args...);
+	}
+
+	template <typename T, typename R, typename... Args>
+	typename std::enable_if_t<std::is_base_of<bk_conq::bounded_queue, T>::value>
+	BlockingTest(Args&&... args) {
+		auto dequeueFunction = generateDequeueFunctionBlocking<T, R>();
+		auto enqueueFunction = generateEnqueueFunctionBlocking<T, R>();
+		GenericTest(dequeueFunction, enqueueFunction, _params.queueSize, args...);
 	}
 
 };

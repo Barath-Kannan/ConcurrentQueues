@@ -18,7 +18,6 @@ set(MAIN_HEADERS
 	inc/bk_conq/list_queue.hpp
 	inc/bk_conq/vector_queue.hpp
 	inc/bk_conq/bounded_list_queue.hpp
-	
 )
 
 set(TEST_HEADERS
