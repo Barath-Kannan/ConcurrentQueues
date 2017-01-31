@@ -35,6 +35,19 @@ struct TestParameters {
 	QueueTestType testType;
 };
 
+struct BigThing {
+	size_t value;
+	char padding[256];
+	void operator=(const size_t& v) {
+		value = v;
+	}
+	BigThing(const size_t& v) {
+		value = v;
+	}
+	BigThing() {}
+};
+
+
 class QueueTest : public testing::Test,
 public testing::WithParamInterface< ::testing::tuple<uint32_t, uint32_t, uint32_t, size_t, size_t, QueueTestType> > {
 public:
@@ -57,7 +70,7 @@ protected:
             l.emplace_back([&, i]() {
                 readers[i].start();
 				queue_test_type_t res;
-                for (volatile size_t j = 0; j < _params.nElements / _params.nReaders; ++j) {
+                for (size_t j = 0; j < _params.nElements / _params.nReaders; ++j) {
                     dequeueOperation(q, res);
                 }
                 if (i == 0) {
@@ -72,7 +85,7 @@ protected:
         for (size_t i = 0; i < _params.nWriters; ++i) {
             l.emplace_back([&, i]() {
                 writers[i].start();
-                for (volatile size_t j = 0; j < _params.nElements / _params.nWriters; ++j) {
+                for (size_t j = 0; j < _params.nElements / _params.nWriters; ++j) {
                     enqueueOperation(q, j);
                 }
                 if (i == 0) {

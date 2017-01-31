@@ -128,19 +128,6 @@ private:
 		return nullptr;
 	}
 
-	template<typename U>
-	inline list_node_t *acquire_or_allocate(U&& input) {
-		list_node_t *node = freelist_try_dequeue();
-		if (!node) {
-			node = new list_node_t{ std::forward<U>(input) };
-		}
-		else {
-			node->data = std::forward<U>(input);
-			node->next.store(nullptr, std::memory_order_relaxed);
-		}
-		return node;
-	}
-
 	std::vector<list_node_t>	_data;
 	char                        _padding2[64];
 	std::atomic<list_node_t*>   _head{ &_data[0] };

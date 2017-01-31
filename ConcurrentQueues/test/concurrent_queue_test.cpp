@@ -140,7 +140,7 @@ namespace BoundedListQueue {
 			l.emplace_back([&, i]() {
 				readers[i].start();
 				queue_test_type_t res;
-				for (volatile size_t j = 0; j < _params.nElements / _params.nReaders; ++j) {
+				for (size_t j = 0; j < _params.nElements / _params.nReaders; ++j) {
 					while (!q.mc_dequeue(res));
 				}
 				if (i == 0) {
@@ -155,7 +155,7 @@ namespace BoundedListQueue {
 		for (size_t i = 0; i < _params.nWriters; ++i) {
 			l.emplace_back([&, i]() {
 				writers[i].start();
-				for (volatile size_t j = 0; j < _params.nElements / _params.nWriters; ++j) {
+				for (size_t j = 0; j < _params.nElements / _params.nWriters; ++j) {
 					while (!q.mp_enqueue(j));
 				}
 				if (i == 0) {
