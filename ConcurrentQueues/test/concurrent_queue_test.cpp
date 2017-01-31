@@ -65,8 +65,8 @@ void QueueTest::TearDown(){
     writeDur/=toMeasure;
     cout << "Max write thread duration: " << writeMax << endl;
     cout << "Average write thread duration: " << writeDur << endl;
-    cout << "Average time per enqueue: " << writeDur/_params.nElements << endl;
-	cout << "Enqueue ops/second: " << static_cast<double>(_params.nElements) / writeDur.count() << std::endl;
+    cout << "Time per enqueue (worst case): " << writeMax/_params.nElements << endl;
+	cout << "Enqueue ops/second (worst case): " << static_cast<double>(_params.nElements) / writeMax.count() << std::endl;
 
     cout << "Dequeue:" << endl;
     auto readDur = readers[0].getElapsedDuration();
@@ -83,8 +83,8 @@ void QueueTest::TearDown(){
     readDur/=toMeasure;
     cout << "Max read thread duration: " << readMax << endl;
     cout << "Average read thread duration: " << readDur << endl;
-    cout << "Average time per dequeue: " << readDur/_params.nElements << endl;
-	cout << "Dequeue ops/second: " << static_cast<double>(_params.nElements) / readDur.count() << std::endl;
+    cout << "Time per dequeue (worst case): " << readMax/_params.nElements << endl;
+	cout << "Dequeue ops/second (worst case): " << static_cast<double>(_params.nElements) / readMax.count() << std::endl;
 }
 
 namespace ListQueue{
@@ -200,8 +200,8 @@ INSTANTIATE_TEST_CASE_P(
         queue_benchmark,
         QueueTest,
         testing::Combine(
-        Values(1, 2, 4, 8, 16, 32, 256), //readers
-        Values(1, 2, 4, 8, 16, 32, 256), //writers
+        Values(1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024), //readers
+        Values(1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024), //writers
         Values(1e6, 1e7, 1e8, 1e9), //elements
 		Values(8192, 32768, 131072, 524288, 2097152), //queue size (bounded only)
 		Values(2, 4, 8, 16, 32, 64), //subqueue size (multiqueue only)
