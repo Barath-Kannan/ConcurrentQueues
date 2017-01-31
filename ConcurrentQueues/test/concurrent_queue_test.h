@@ -51,7 +51,7 @@ protected:
 
     template<typename T, typename R, typename ...Args>
     void GenericTest(std::function<void(T&, R&) > dequeueOperation, std::function<void(T&, R) > enqueueOperation, Args... args) {
-		static T q{ args... };
+		T q{ args... };
         std::vector<std::thread> l;
         for (size_t i = 0; i < _params.nReaders; ++i) {
             l.emplace_back([&, i]() {
