@@ -15,35 +15,79 @@
 
 #include <thread>
 #include <vector>
-#include <numeric>
 #include <bk_conq/unbounded_queue.hpp>
 
 namespace bk_conq {
-template <typename T>
-class multi_unbounded_queue : public unbounded_queue {
+
+template<typename TT>
+class multi_unbounded_queue;
+
+template <template <typename> class Q, typename T>
+class multi_unbounded_queue<Q<T>> : public unbounded_queue<T, multi_unbounded_queue<Q<T>>>{
+	friend unbounded_queue<T, multi_unbounded_queue<Q<T>>>;
 public:
 	multi_unbounded_queue(size_t subqueues) : _q(subqueues) {
-		static_assert(std::is_base_of<bk_conq::unbounded_queue, T>::value, "T must be an unbounded queue");
+		static_assert(std::is_base_of<bk_conq::unbounded_queue_typed_tag<T>, Q<T>>::value, "Q<T> must be an unbounded queue");
 	}
 
 	multi_unbounded_queue(const multi_unbounded_queue&) = delete;
 	void operator=(const multi_unbounded_queue&) = delete;
 
+	
+protected:
+	struct hitlist_identifier {
+		multi_unbounded_queue<Q<T>>* pthis;
+		std::vector<size_t> hitlist;
+	};
+
+	std::vector<size_t>& get_hitlist() {
+		thread_local std::vector<hitlist_identifier> hitlist_map;
+		thread_local hitlist_identifier* prev = nullptr;
+		if (prev && prev->pthis == this) return prev->hitlist;
+		for (auto& item : hitlist_map) {
+			if (item.pthis == this) {
+				prev = &item;
+				return item.hitlist;
+			}
+		}
+		hitlist_map.emplace_back(hitlist_identifier{this, hitlist_sequence()});
+		return hitlist_map.back().hitlist;
+	}
+
+	struct enqueue_identifier {
+		multi_unbounded_queue<Q<T>>* pthis;
+		size_t index;
+	};
+
+	size_t get_enqueue_index() {
+		thread_local std::vector<enqueue_identifier> index_map;
+		thread_local enqueue_identifier* prev = nullptr;
+		if (prev && prev->pthis == this) return prev->index;
+		for (auto& item : index_map) {
+			if (item.pthis == this) {
+				prev = &item;
+				return item.index;
+			}
+		}
+		size_t enqueue_index = _enqueue_indx.fetch_add(1)%_q.size();
+		index_map.emplace_back(enqueue_identifier{ this, enqueue_index });
+		return index_map.back().index;
+	}
+
 	template <typename R>
-	void sp_enqueue(R&& input) {
-		thread_local size_t indx{ _enqueue_indx.fetch_add(1) % _q.size() };
+	void sp_enqueue_impl(R&& input) {
+		auto indx = get_enqueue_index();
 		_q[indx].mp_enqueue(std::forward<R>(input));
 	}
 
 	template <typename R>
-	void mp_enqueue(R&& input) {
-		thread_local size_t indx{ _enqueue_indx.fetch_add(1) % _q.size() };
+	void mp_enqueue_impl(R&& input) {
+		auto indx = get_enqueue_index();
 		_q[indx].mp_enqueue(std::forward<R>(input));
 	}
 
-	template <typename R>
-	bool sc_dequeue(R& output) {
-		thread_local auto hitlist = hitlist_sequence();
+	bool sc_dequeue_impl(T& output) {
+		auto& hitlist = get_hitlist();
 		for (auto it = hitlist.begin(); it != hitlist.end(); ++it) {
 			if (_q[*it].sc_dequeue(output)) {
 				for (auto it2 = hitlist.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
@@ -53,17 +97,27 @@ public:
 		return false;
 	}
 
-	template <typename R>
-	bool mc_dequeue(R& output) {
-		thread_local auto hitlist = hitlist_sequence();
+	bool mc_dequeue_impl(T& output) {
+		auto& hitlist = get_hitlist();
 		for (auto it = hitlist.begin(); it != hitlist.end(); ++it) {
-			if (_q[*it].mc_dequeue_light(output)) {
+			if (_q[*it].mc_dequeue_uncontended(output)) {
 				for (auto it2 = hitlist.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
 				return true;
 			}
 		}
 		for (auto it = hitlist.begin(); it != hitlist.end(); ++it) {
 			if (_q[*it].mc_dequeue(output)) {
+				for (auto it2 = hitlist.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
+				return true;
+			}
+		}
+		return false;
+	}
+
+	bool mc_dequeue_uncontended_impl(T& output) {
+		auto& hitlist = get_hitlist();
+		for (auto it = hitlist.begin(); it != hitlist.end(); ++it) {
+			if (_q[*it].mc_dequeue_uncontended(output)) {
 				for (auto it2 = hitlist.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
 				return true;
 			}
@@ -78,7 +132,7 @@ private:
 		return hitlist;
 	}
 
-	class padded_unbounded_queue : public T{
+	class padded_unbounded_queue : public Q<T>{
 		char padding[64];
 	};
 
