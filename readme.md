@@ -8,7 +8,7 @@ This library aims to provide a variety of different multi-producer multi-consume
     - [Queue Types](#queue-types)
     - [Building](#building)
     - [Usage](#usage)
-	- [Performance](#performance)
+    - [Performance](#performance)
 	
 ##Queue types
 
@@ -88,15 +88,17 @@ The multi queue types have the same interface as the base queue types but their 
 
 Below are some preliminary results with comparisons to Cameron Desrochers moody camel queue. All tests are conducted using a machine with an intel core i7-6700K @ 4.00GHz, and 11GB of RAM, compiled using the msvc-14.0 compiler (Visual Studio 2015).
 
-Fixed parameters:
-Number of elements to enqueue/dequeue: 100,000,000
-Type: size_t
-For bounded queues - queue size: 2097152 elements
-For multi queues - subqueue size: 16 subqueues
+| Fixed parameters: |
+| --- |
+| Number of elements to enqueue/dequeue: 100,000,000 |
+| Type: size_t |
+| For bounded queues - queue size: 2097152 elements |
+| For multi queues - subqueue size: 16 subqueues |
 
-1 Reader, 16 Writers
+#### 1 Reader. 16 Writers.
 All time values are in nanoseconds, lower is better.
-| Queue type | avrg enqueue | wrst enqueue | avg dequeue | wrst dequeue|
+
+| Queue type | avrg enqueue | wrst enqueue | avg dequeue | wrst dequeue |
 | --- | --- | --- | --- | --- |
 | list_queue | 98 | 116 | 123 | 123 |
 | bounded_list_queue | 254 | 277 | 278 | 278 |
@@ -109,9 +111,10 @@ All time values are in nanoseconds, lower is better.
 
 From the results, we can see that the multi list queue has slightly worse enqueue performance and significantly better dequeue performance than the moody queue, unless the moody queue has access to thread local tokens.
 
-16 Reader, 1 Writers
+#### 16 Readers. 1 Writer.
 All time values are in nanoseconds, lower is better.
-| Queue type | avrg enqueue | wrst enqueue | avg dequeue | wrst dequeue|
+
+| Queue type | avrg enqueue | wrst enqueue | avg dequeue | wrst dequeue |
 | --- | --- | --- | --- | --- |
 | list_queue | 24 | 24 | 41 | 47 |
 | bounded_list_queue | 45 | 45 | 53 | 59 |
@@ -124,9 +127,10 @@ All time values are in nanoseconds, lower is better.
 
 As expected, any subqueue based scheme suffers significantly as only 1 subqueue is ever populated given there is only a single writer. The moody queue shows that it is quite expensive when no hit occurs on a dequeue. Wherever there is a single writer situation, the simple queue types should be preffered.
 
-16 Reader, 16 Writers
+#### 16 Readers. 16 Writers.
 All time values are in nanoseconds, lower is better.
-| Queue type | avrg enqueue | wrst enqueue | avg dequeue | wrst dequeue|
+
+| Queue type | avrg enqueue | wrst enqueue | avg dequeue | wrst dequeue |
 | --- | --- | --- | --- | --- |
 | list_queue | 40 | 42 | 45 | 55 |
 | bounded_list_queue | 86 | 92 | 85 | 92 |
@@ -137,4 +141,4 @@ All time values are in nanoseconds, lower is better.
 | moody_queue | 6.18 | 9.9 | 42.87 | 47.82 |
 | moody_queue_tokenized | 4.81 | 5.60 | 9.51 | 15.42 |
 
-These are the most interesting results, as this is the context in which a MPMC queue is most relevant. Where queues are under high contention and the queues rarely stay empty or full, the multi bounded variants exhibited significant performance gains over the other types. The moody queue performance falls off as the contention increases but given an equal number of readers and writers, the multi queues are able to maintain linear speed up up to the number of cores that are present. As far as I am aware, the performance of all the multi queue variants in this high contention scenario are the best of any MPMC queue implementation that currently exists publicly.
+Where queues are under high contention and the queues rarely stay empty or full, the multi bounded variants exhibited significant performance gains over the other types. The moody queue performance falls off as the contention increases but given an equal number of readers and writers, the multi queues are able to maintain linear speed up up to the number of cores that are present. As far as I am aware, the performance of all the multi queue variants in this high contention scenario are the best of any MPMC queue implementation that currently exists publicly.
