@@ -15,12 +15,13 @@
 #include <type_traits>
 
 namespace bk_conq {
-template<typename T>
-class blocking_unbounded_queue : private T {
+
+template <typename T>
+class blocking_unbounded_queue : private T{
 public:
 	template <typename... Args>
 	blocking_unbounded_queue(Args&&... args) : T(args...) {
-		static_assert(std::is_base_of<bk_conq::unbounded_queue, T>::value, "T must be an unbounded queue");
+		static_assert(std::is_base_of<bk_conq::unbounded_queue_tag, T>::value, "T must be an unbounded queue");
 	}
 
 	virtual ~blocking_unbounded_queue() {};
@@ -46,7 +47,7 @@ public:
 	void sc_dequeue(R& output) {
 		if (T::sc_dequeue(output)) return;
 		std::unique_lock<std::mutex> lock(_m);
-		while (!T::sc_dequeue(output)) {
+		while (!Q<T>::sc_dequeue(output)) {
 			_cv.wait(lock);
 		}
 	}
@@ -60,7 +61,7 @@ public:
 	void mc_dequeue(R& output) {
 		if (T::mc_dequeue(output)) return;
 		std::unique_lock<std::mutex> lock(_m);
-		while (!T::mc_dequeue(output)) {
+		while (T::mc_dequeue(output)) {
 			_cv.wait(lock);
 		}
 	}

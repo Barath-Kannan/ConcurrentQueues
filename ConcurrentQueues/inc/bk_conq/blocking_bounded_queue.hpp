@@ -15,13 +15,14 @@
 #include <type_traits>
 
 namespace bk_conq {
-template<typename T>
+
+template <typename T>
 class blocking_bounded_queue : private T {
 public:
 
 	template <typename... Args>
 	blocking_bounded_queue(Args&&... args) : T(args...) {
-		static_assert(std::is_base_of<bk_conq::bounded_queue, T>::value, "T must be a bounded queue");
+		static_assert(std::is_base_of<bk_conq::bounded_queue_tag, T>::value, "T must be a bounded queue");
 	}
 
 	virtual ~blocking_bounded_queue() {};
