@@ -20,7 +20,8 @@
 
 namespace bk_conq {
 template<typename T>
-class bounded_list_queue : public bounded_queue {
+class bounded_list_queue : public bounded_queue<T, bounded_list_queue<T>> {
+	friend bounded_queue<T, bounded_list_queue<T>>;
 public:
 	bounded_list_queue(size_t N) : _data(N){
 		_free_list_head.store(&_data[1], std::memory_order_relaxed);
@@ -32,15 +33,15 @@ public:
 		}
 	}
 
-	virtual ~bounded_list_queue() {
-	}
+	virtual ~bounded_list_queue() {}
 
 	bounded_list_queue(const bounded_list_queue&) = delete;
 	void operator=(const bounded_list_queue&) = delete;
 
-
+	
+protected:
 	template <typename R>
-	bool sp_enqueue(R&& input) {
+	bool sp_enqueue_impl(R&& input) {
 		list_node_t *node = freelist_try_dequeue();
 		if (!node) return false;
 		node->data = std::forward<R>(input);
@@ -51,7 +52,7 @@ public:
 	}
 
 	template <typename R>
-	bool mp_enqueue(R&& input) {
+	bool mp_enqueue_impl(R&& input) {
 		list_node_t *node = freelist_try_dequeue();
 		if (!node) return false;
 		node->data = std::forward<R>(input);
@@ -61,8 +62,7 @@ public:
 		return true;
 	}
 
-
-	bool sc_dequeue(T& output) {
+	bool sc_dequeue_impl(T& output) {
 		list_node_t* tail = _tail.load(std::memory_order_relaxed);
 		list_node_t* next = tail->next.load(std::memory_order_acquire);
 		if (!next) return false;
@@ -73,7 +73,7 @@ public:
 	}
 
 	//yield spin on dequeue contention
-	bool mc_dequeue(T& output) {
+	bool mc_dequeue_impl(T& output) {
 		list_node_t *tail;
 		for (tail = _tail.exchange(nullptr, std::memory_order_acq_rel); !tail; tail = _tail.exchange(nullptr, std::memory_order_acq_rel)) {
 			std::this_thread::yield();
@@ -90,7 +90,7 @@ public:
 	}
 
 	//return false on dequeue contention
-	bool mc_dequeue_light(T& output) {
+	bool mc_dequeue_uncontended_impl(T& output) {
 		list_node_t *tail = _tail.exchange(nullptr, std::memory_order_acq_rel);
 		if (!tail) return false;
 		list_node_t *next = tail->next.load(std::memory_order_acquire);
