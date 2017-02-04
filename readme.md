@@ -86,7 +86,7 @@ The multi queue types have the same interface as the base queue types but their 
 
 ## Performance
 
-Below are some preliminary results with comparisons to Cameron Desrochers moody camel queue. All tests are conducted using a machine with an intel core i7-6700K @ 4.00GHz, and 11GB of RAM, compiled using the msvc-14.0 compiler (Visual Studio 2015).
+Below are some preliminary results with comparisons to Cameron Desrochers moody camel queue. All tests are conducted using a machine with an intel core i7-6700K @ 4.00GHz, and 16GB of RAM, compiled using the msvc-14.0 compiler (Visual Studio 2015).
 
 | Fixed parameters: |
 | --- |
