@@ -15,12 +15,15 @@
 #include <bk_conq/bounded_queue.hpp>
 
 namespace bk_conq {
-template <typename T>
-class multi_bounded_queue : public bounded_queue{
-public:
+template<typename TT>
+class multi_bounded_queue;
 
+template <template <typename> class Q, typename T>
+class multi_bounded_queue<Q<T>> : public bounded_queue<T, multi_bounded_queue<Q<T>>> {
+	friend bounded_queue<T, multi_bounded_queue<Q<T>>>;
+public:
 	multi_bounded_queue(size_t N, size_t subqueues){
-		static_assert(std::is_base_of<bk_conq::bounded_queue, T>::value, "T must be a bounded queue");
+		static_assert(std::is_base_of<bk_conq::bounded_queue_typed_tag<T>, Q<T>>::value, "Q<T> must be a bounded queue");
 		for (size_t i = 0; i < subqueues; ++i) {
 			_q.push_back(std::make_unique<padded_bounded_queue>(N));
 		}
@@ -29,21 +32,60 @@ public:
 	multi_bounded_queue(const multi_bounded_queue&) = delete;
 	void operator=(const multi_bounded_queue&) = delete;
 
-	template <typename R>
-	bool sp_enqueue(R&& input) {
-		thread_local size_t index{ _enqueue_indx.fetch_add(1) % _q.size() };
-		return _q[index]->mp_enqueue(std::forward<R>(input));
+protected:
+	struct hitlist_identifier {
+		multi_bounded_queue<Q<T>>* pthis;
+		std::vector<size_t> hitlist;
+	};
+
+	std::vector<size_t>& get_hitlist() {
+		thread_local std::vector<hitlist_identifier> hitlist_map;
+		thread_local hitlist_identifier* prev = nullptr;
+		if (prev && prev->pthis == this) return prev->hitlist;
+		for (auto& item : hitlist_map) {
+			if (item.pthis == this) {
+				prev = &item;
+				return item.hitlist;
+			}
+		}
+		hitlist_map.emplace_back(hitlist_identifier{ this, hitlist_sequence() });
+		return hitlist_map.back().hitlist;
+	}
+
+	struct enqueue_identifier {
+		multi_bounded_queue<Q<T>>* pthis;
+		size_t index;
+	};
+
+	size_t get_enqueue_index() {
+		thread_local std::vector<enqueue_identifier> index_map;
+		thread_local enqueue_identifier* prev = nullptr;
+		if (prev && prev->pthis == this) return prev->index;
+		for (auto& item : index_map) {
+			if (item.pthis == this) {
+				prev = &item;
+				return item.index;
+			}
+		}
+		size_t enqueue_index = _enqueue_indx.fetch_add(1) % _q.size();
+		index_map.emplace_back(enqueue_identifier{ this, enqueue_index });
+		return index_map.back().index;
 	}
 
 	template <typename R>
-	bool mp_enqueue(R&& input) {
-		thread_local size_t index{ _enqueue_indx.fetch_add(1) % _q.size() };
-		return _q[index]->mp_enqueue(std::forward<R>(input));
+	bool sp_enqueue_impl(R&& input) {
+		size_t indx = get_enqueue_index();
+		return _q[indx]->mp_enqueue(std::forward<R>(input));
 	}
 
 	template <typename R>
-	bool sc_dequeue(R& output) {
-		thread_local auto hitlist = hitlist_sequence();
+	bool mp_enqueue_impl(R&& input) {
+		size_t indx = get_enqueue_index();
+		return _q[indx]->mp_enqueue(std::forward<R>(input));
+	}
+
+	bool sc_dequeue_impl(T& output) {
+		auto& hitlist = get_hitlist();
 		for (auto it = hitlist.begin(); it != hitlist.end(); ++it) {
 			if (_q[*it]->sc_dequeue(output)) {
 				for (auto it2 = hitlist.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
@@ -53,18 +95,27 @@ public:
 		return false;
 	}
 
-	template <typename R>
-	bool mc_dequeue(R& output) {
-		thread_local auto hitlist = hitlist_sequence();
+	bool mc_dequeue_impl(T& output) {
+		auto& hitlist = get_hitlist();
 		for (auto it = hitlist.begin(); it != hitlist.end(); ++it) {
-			//this will return false on dequeue contention
-			if (_q[*it]->mc_dequeue_light(output)) {
+			if (_q[*it]->mc_dequeue_uncontended(output)) {
 				for (auto it2 = hitlist.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
 				return true;
 			}
 		}
 		for (auto it = hitlist.begin(); it != hitlist.end(); ++it) {
 			if (_q[*it]->mc_dequeue(output)) {
+				for (auto it2 = hitlist.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
+				return true;
+			}
+		}
+		return false;
+	}
+
+	bool mc_dequeue_uncontended_impl(T& output) {
+		auto& hitlist = get_hitlist();
+		for (auto it = hitlist.begin(); it != hitlist.end(); ++it) {
+			if (_q[*it]->mc_dequeue_light(output)) {
 				for (auto it2 = hitlist.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
 				return true;
 			}
@@ -79,9 +130,9 @@ private:
 		return hitlist;
 	}
 
-	class padded_bounded_queue : public T {
+	class padded_bounded_queue : public Q<T> {
 	public:
-		padded_bounded_queue(size_t N) : T(N) {}
+		padded_bounded_queue(size_t N) : Q<T>(N) {}
 	private:
 		char padding[64];
 	};
