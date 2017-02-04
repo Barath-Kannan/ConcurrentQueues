@@ -17,12 +17,11 @@ There are 3 base queue types provided:
 - Linked list based unbounded queue (bk_conq::list_queue<T>)
 - Linked list based bounded queue (bk_conq::bounded_list_queue<T>)
 
-There are also 2 different types of queue adapters.
-The subqueue adapters, which are used to increase performance with a large number of writers:
+These are extended by the subqueue adapters, which are used to increase performance with a large number of writers:
 - Multi bounded queue (bk_conq::multi_bounded_queue<Q<T>>)
 - Multi unbounded queue (bk_conq::multi_unbounded_queue<Q<T>>)
 
-And also the blocking adapters, which provide a blocking interface.:
+The blocking adapters provide blocking enqueue/dequeue operations and try operations.
 - Blocking bounded queue (bk_conq::blocking_bounded_queue<Q<T>>)
 - Blocking unbounded queue (bk_conq::blocking_unbounded_queue<Q<T>>)
 
