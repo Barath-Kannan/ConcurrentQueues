@@ -98,7 +98,7 @@ Below are some preliminary results with comparisons to Cameron Desrochers moody 
 #### 1 Reader. 16 Writers.
 All time values are in nanoseconds, lower is better.
 
-| Queue type | avrg enqueue | wrst enqueue | avg dequeue | wrst dequeue |
+| Queue type | average enqueue | worst enqueue | average dequeue | worst dequeue |
 | --- | --- | --- | --- | --- |
 | list_queue | 98 | 116 | 123 | 123 |
 | bounded_list_queue | 254 | 277 | 278 | 278 |
@@ -114,7 +114,7 @@ From the results, we can see that the multi list queue has slightly worse enqueu
 #### 16 Readers. 1 Writer.
 All time values are in nanoseconds, lower is better.
 
-| Queue type | avrg enqueue | wrst enqueue | avg dequeue | wrst dequeue |
+| Queue type | average enqueue | worst enqueue | average dequeue | worst dequeue |
 | --- | --- | --- | --- | --- |
 | list_queue | 24 | 24 | 41 | 47 |
 | bounded_list_queue | 45 | 45 | 53 | 59 |
@@ -130,7 +130,7 @@ As expected, any subqueue based scheme suffers significantly as only 1 subqueue 
 #### 16 Readers. 16 Writers.
 All time values are in nanoseconds, lower is better.
 
-| Queue type | avrg enqueue | wrst enqueue | avg dequeue | wrst dequeue |
+| Queue type | average enqueue | worst enqueue | average dequeue | worst dequeue |
 | --- | --- | --- | --- | --- |
 | list_queue | 40 | 42 | 45 | 55 |
 | bounded_list_queue | 86 | 92 | 85 | 92 |
