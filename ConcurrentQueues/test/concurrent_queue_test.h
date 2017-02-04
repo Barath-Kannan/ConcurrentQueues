@@ -162,7 +162,7 @@ protected:
 			case YIELD_TEST: return generateYieldDequeue();
 			case SLEEP_TEST: return generateSleepDequeue();
 			case BACKOFF_TEST: return generateBackoffDequeue();
-			default: return generateBusyDequeue();;
+			default: return generateBusyDequeue();
 		}
 	}
 
