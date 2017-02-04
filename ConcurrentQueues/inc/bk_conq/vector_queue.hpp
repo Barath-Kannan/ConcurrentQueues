@@ -21,7 +21,8 @@
 
 namespace bk_conq {
 template<typename T>
-class vector_queue : public bounded_queue {
+class vector_queue : public bounded_queue<T, vector_queue<T>> {
+	friend bounded_queue<T, vector_queue<T>>;
 public:
 
 	vector_queue(size_t N) : _buffer(N) {
@@ -36,9 +37,9 @@ public:
 	vector_queue(const vector_queue&) = delete;
 	void operator=(const vector_queue&) = delete;
 
-
+protected:
 	template <typename R>
-	bool sp_enqueue(R&& input) {
+	bool sp_enqueue_impl(R&& input) {
 		size_t head_seq = _head_seq.load(std::memory_order_relaxed);
 		node_t* node = &_buffer[head_seq & (_buffer.size() - 1)];
 		size_t node_seq = node->seq.load(std::memory_order_acquire);
@@ -51,7 +52,7 @@ public:
 	}
 
 	template <typename R>
-	bool mp_enqueue(R&& input) {
+	bool mp_enqueue_impl(R&& input) {
 		while (true) {
 			size_t head_seq = _head_seq.load(std::memory_order_relaxed);
 			node_t* node = &_buffer[head_seq & (_buffer.size() - 1)];
@@ -70,7 +71,7 @@ public:
 		}
 	}
 
-	bool sc_dequeue(T& data) {
+	bool sc_dequeue_impl(T& data) {
 		size_t tail_seq = _tail_seq.load(std::memory_order_relaxed);
 		node_t* node = &_buffer[tail_seq & (_buffer.size() - 1)];
 		size_t node_seq = node->seq.load(std::memory_order_acquire);
@@ -83,7 +84,7 @@ public:
 		return false;
 	}
 
-	bool mc_dequeue(T& data) {
+	bool mc_dequeue_impl(T& data) {
 		while (true) {
 			size_t tail_seq = _tail_seq.load(std::memory_order_relaxed);
 			node_t* node = &_buffer[tail_seq & (_buffer.size() - 1)];
@@ -102,7 +103,7 @@ public:
 		}
 	}
 
-	bool mc_dequeue_light(T& data) {
+	bool mc_dequeue_uncontended_impl(T& data) {
 		return sc_dequeue(data);
 	}
 
