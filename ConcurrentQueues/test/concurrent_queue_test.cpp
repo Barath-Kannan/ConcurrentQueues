@@ -94,7 +94,7 @@ void QueueTest::TearDown(){
 
 namespace ListQueue{
 	using qtype = bk_conq::list_queue<QueueTest::queue_test_type_t>;
-	using mqtype = bk_conq::multi_unbounded_queue<qtype>;
+	using mqtype = bk_conq::multi_unbounded_queue<qtype, 2>;
 	using bqtype = bk_conq::blocking_unbounded_queue<qtype>;
 	using bmqtype = bk_conq::blocking_unbounded_queue<mqtype>;
 
@@ -107,12 +107,13 @@ namespace ListQueue{
 	}
 
 	TEST_P(QueueTest, multi_list_queue) {
+		//mqtype q(_params.subqueueSize);
 		QueueTest::TemplatedTest<mqtype, queue_test_type_t>(_params.subqueueSize);
 	}
 
-	TEST_P(QueueTest, multi_list_queue_blocking) {
-		QueueTest::BlockingTest<bmqtype, queue_test_type_t>(_params.subqueueSize);
-	}
+	//TEST_P(QueueTest, multi_list_queue_blocking) {
+	//	QueueTest::BlockingTest<bmqtype, queue_test_type_t>(_params.subqueueSize);
+	//}
 
 }
 

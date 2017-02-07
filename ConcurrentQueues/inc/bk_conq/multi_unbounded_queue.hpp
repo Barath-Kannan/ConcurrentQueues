@@ -19,12 +19,12 @@
 
 namespace bk_conq {
 
-template<typename TT>
+template<typename TT, size_t N>
 class multi_unbounded_queue;
 
-template <template <typename> class Q, typename T>
-class multi_unbounded_queue<Q<T>> : public unbounded_queue<T, multi_unbounded_queue<Q<T>>>{
-	friend unbounded_queue<T, multi_unbounded_queue<Q<T>>>;
+template <template <typename> class Q, typename T, size_t N>
+class multi_unbounded_queue<Q<T>, N> : public unbounded_queue<T, multi_unbounded_queue<Q<T>, N>>{
+	friend unbounded_queue<T, multi_unbounded_queue<Q<T>, N>>;
 public:
 	multi_unbounded_queue(size_t subqueues) : _q(subqueues) {
 		static_assert(std::is_base_of<bk_conq::unbounded_queue_typed_tag<T>, Q<T>>::value, "Q<T> must be an unbounded queue");
@@ -35,59 +35,20 @@ public:
 
 	
 protected:
-	struct hitlist_identifier {
-		multi_unbounded_queue<Q<T>>* pthis;
-		std::vector<size_t> hitlist;
-	};
-
-	std::vector<size_t>& get_hitlist() {
-		thread_local std::vector<hitlist_identifier> hitlist_map;
-		thread_local hitlist_identifier* prev = nullptr;
-		if (prev && prev->pthis == this) return prev->hitlist;
-		for (auto& item : hitlist_map) {
-			if (item.pthis == this) {
-				prev = &item;
-				return item.hitlist;
-			}
-		}
-		hitlist_map.emplace_back(hitlist_identifier{this, hitlist_sequence()});
-		return hitlist_map.back().hitlist;
-	}
-
-	struct enqueue_identifier {
-		multi_unbounded_queue<Q<T>>* pthis;
-		size_t index;
-	};
-
-	size_t get_enqueue_index() {
-		thread_local std::vector<enqueue_identifier> index_map;
-		thread_local enqueue_identifier* prev = nullptr;
-		if (prev && prev->pthis == this) return prev->index;
-		for (auto& item : index_map) {
-			if (item.pthis == this) {
-				prev = &item;
-				return item.index;
-			}
-		}
-		size_t enqueue_index = _enqueue_indx.fetch_add(1)%_q.size();
-		index_map.emplace_back(enqueue_identifier{ this, enqueue_index });
-		return index_map.back().index;
-	}
-
 	template <typename R>
 	void sp_enqueue_impl(R&& input) {
-		auto indx = get_enqueue_index();
-		_q[indx].mp_enqueue(std::forward<R>(input));
+		thread_local size_t indx = _enqueue_indx.fetch_add(1) % _q.size();
+		_q[indx].sp_enqueue(std::forward<R>(input));
 	}
 
 	template <typename R>
 	void mp_enqueue_impl(R&& input) {
-		auto indx = get_enqueue_index();
+		thread_local size_t indx = _enqueue_indx.fetch_add(1) % _q.size();
 		_q[indx].mp_enqueue(std::forward<R>(input));
 	}
 
 	bool sc_dequeue_impl(T& output) {
-		auto& hitlist = get_hitlist();
+		thread_local std::vector<size_t> hitlist = hitlist_sequence();
 		for (auto it = hitlist.begin(); it != hitlist.end(); ++it) {
 			if (_q[*it].sc_dequeue(output)) {
 				for (auto it2 = hitlist.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
@@ -98,7 +59,7 @@ protected:
 	}
 
 	bool mc_dequeue_impl(T& output) {
-		auto& hitlist = get_hitlist();
+		thread_local std::vector<size_t> hitlist = hitlist_sequence();
 		for (auto it = hitlist.begin(); it != hitlist.end(); ++it) {
 			if (_q[*it].mc_dequeue_uncontended(output)) {
 				for (auto it2 = hitlist.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
@@ -115,7 +76,7 @@ protected:
 	}
 
 	bool mc_dequeue_uncontended_impl(T& output) {
-		auto& hitlist = get_hitlist();
+		thread_local std::vector<size_t> hitlist = hitlist_sequence();
 		for (auto it = hitlist.begin(); it != hitlist.end(); ++it) {
 			if (_q[*it].mc_dequeue_uncontended(output)) {
 				for (auto it2 = hitlist.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
@@ -126,7 +87,7 @@ protected:
 	}
 
 private:
-	std::vector<size_t> hitlist_sequence() {
+	inline std::vector<size_t> hitlist_sequence() {
 		std::vector<size_t> hitlist(_q.size());
 		std::iota(hitlist.begin(), hitlist.end(), 0);
 		return hitlist;
@@ -139,6 +100,7 @@ private:
 	std::vector<padded_unbounded_queue> _q;
 	std::atomic<size_t> _enqueue_indx{ 0 };
 };
+
 }//namespace bk_conq
 
 #endif /* BK_CONQ_MULTI_UNBOUNDED_QUEUE_HPP */
