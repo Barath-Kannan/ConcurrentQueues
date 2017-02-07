@@ -107,13 +107,12 @@ namespace ListQueue{
 	}
 
 	TEST_P(QueueTest, multi_list_queue) {
-		//mqtype q(_params.subqueueSize);
 		QueueTest::TemplatedTest<mqtype, queue_test_type_t>(_params.subqueueSize);
 	}
 
-	//TEST_P(QueueTest, multi_list_queue_blocking) {
-	//	QueueTest::BlockingTest<bmqtype, queue_test_type_t>(_params.subqueueSize);
-	//}
+	TEST_P(QueueTest, multi_list_queue_blocking) {
+		QueueTest::BlockingTest<bmqtype, queue_test_type_t>(_params.subqueueSize);
+	}
 
 }
 

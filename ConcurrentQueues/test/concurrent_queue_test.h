@@ -69,7 +69,7 @@ protected:
         for (size_t i = 0; i < _params.nReaders; ++i) {
             l.emplace_back([&, i]() {
 				while (!_startFlag.load(std::memory_order_acquire)) { std::this_thread::yield(); }
-                readers[i].start();
+				readers[i].start();
 				queue_test_type_t res;
                 for (size_t j = 0; j < _params.nElements / _params.nReaders; ++j) {
                     dequeueOperation(q, res);
@@ -126,7 +126,10 @@ protected:
 	auto generateBackoffDequeue() {
 		return ([](auto& q, auto& item) {
 			auto wait_time = std::chrono::nanoseconds(1);
-			while (!q.mc_dequeue(item)); { std::this_thread::sleep_for(wait_time); wait_time *= 2; }
+			while (!q.mc_dequeue(item)) {
+				std::this_thread::sleep_for(wait_time);
+				wait_time *= 2;
+			}
 		});
 	}
 
