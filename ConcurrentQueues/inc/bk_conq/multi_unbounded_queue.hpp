@@ -33,7 +33,6 @@ public:
 	multi_unbounded_queue(const multi_unbounded_queue&) = delete;
 	void operator=(const multi_unbounded_queue&) = delete;
 
-	
 protected:
 	template <typename R>
 	void sp_enqueue_impl(R&& input) {
