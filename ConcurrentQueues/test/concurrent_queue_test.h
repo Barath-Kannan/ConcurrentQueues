@@ -73,6 +73,9 @@ protected:
 				queue_test_type_t res;
                 for (size_t j = 0; j < _params.nElements / _params.nReaders; ++j) {
                     dequeueOperation(q, res);
+					//if (j % 100000 == 0) std::cout << "d" << j << std::endl;
+					//if (_params.nElements/_params.nReaders -j < 100000) std::cout << "z" << j << std::endl;
+					//if (_params.nElements / _params.nReaders - j < 10000) break;
                 }
                 if (i == 0) {
                     size_t remainder = _params.nElements - ((_params.nElements / _params.nReaders) * _params.nReaders);
@@ -89,6 +92,7 @@ protected:
                 writers[i].start();
                 for (size_t j = 0; j < _params.nElements / _params.nWriters; ++j) {
                     enqueueOperation(q, j);
+					//if (j % 100000 == 0) std::cout << "e" << j << std::endl;
                 }
                 if (i == 0) {
                     size_t remainder = _params.nElements - ((_params.nElements / _params.nWriters) * _params.nWriters);
@@ -125,7 +129,7 @@ protected:
 
 	auto generateBackoffDequeue() {
 		return ([](auto& q, auto& item) {
-			auto wait_time = std::chrono::nanoseconds(1);
+			auto wait_time = std::chrono::nanoseconds(10);
 			while (!q.mc_dequeue(item)) {
 				std::this_thread::sleep_for(wait_time);
 				wait_time *= 2;
