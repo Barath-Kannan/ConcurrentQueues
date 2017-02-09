@@ -20,12 +20,12 @@
 
 namespace bk_conq {
 
-template<typename TT, size_t N=32>
+template<typename TT>
 class multi_unbounded_queue;
 
-template <template <typename> class Q, typename T, size_t N>
-class multi_unbounded_queue<Q<T>, N> : public unbounded_queue<T, multi_unbounded_queue<Q<T>, N>>{
-	friend unbounded_queue<T, multi_unbounded_queue<Q<T>, N>>;
+template <template <typename> class Q, typename T>
+class multi_unbounded_queue<Q<T>> : public unbounded_queue<T, multi_unbounded_queue<Q<T>>>{
+	friend unbounded_queue<T, multi_unbounded_queue<Q<T>>>;
 public:
 	multi_unbounded_queue(size_t subqueues) :
 		_q(subqueues),
@@ -170,14 +170,14 @@ private:
 	tlcl<size_t> _enqueue_identifier;
 };
 
-template <template <typename> class Q, typename T, size_t N> template <typename U>
-size_t multi_unbounded_queue<Q<T>, N>::tlcl<U>::_counter = 0;
+template <template <typename> class Q, typename T> template <typename U>
+size_t multi_unbounded_queue<Q<T>>::tlcl<U>::_counter = 0;
 
-template <template <typename> class Q, typename T, size_t N> template <typename U>
-std::vector<size_t> multi_unbounded_queue<Q<T>, N>::tlcl<U>::_available;
+template <template <typename> class Q, typename T> template <typename U>
+std::vector<size_t> multi_unbounded_queue<Q<T>>::tlcl<U>::_available;
 
-template <template <typename> class Q, typename T, size_t N> template <typename U>
-std::mutex multi_unbounded_queue<Q<T>, N>::tlcl<U>::_m;
+template <template <typename> class Q, typename T> template <typename U>
+std::mutex multi_unbounded_queue<Q<T>>::tlcl<U>::_m;
 
 }//namespace bk_conq
 
