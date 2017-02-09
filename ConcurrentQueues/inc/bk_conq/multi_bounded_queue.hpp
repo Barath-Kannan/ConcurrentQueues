@@ -10,8 +10,9 @@
 
 #include <thread>
 #include <vector>
-#include <numeric>
+#include <mutex>
 #include <memory>
+#include <numeric>
 #include <bk_conq/bounded_queue.hpp>
 
 namespace bk_conq {
@@ -22,7 +23,10 @@ template <template <typename> class Q, typename T>
 class multi_bounded_queue<Q<T>> : public bounded_queue<T, multi_bounded_queue<Q<T>>> {
 	friend bounded_queue<T, multi_bounded_queue<Q<T>>>;
 public:
-	multi_bounded_queue(size_t N, size_t subqueues){
+	multi_bounded_queue(size_t N, size_t subqueues) : 
+		_hitlist([&]() {return hitlist_sequence(); }),
+		_enqueue_identifier([&]() { return get_enqueue_index(); }, [&](size_t indx) {return return_enqueue_index(indx); })
+	{
 		static_assert(std::is_base_of<bk_conq::bounded_queue_typed_tag<T>, Q<T>>::value, "Q<T> must be a bounded queue");
 		for (size_t i = 0; i < subqueues; ++i) {
 			_q.push_back(std::make_unique<padded_bounded_queue>(N));
@@ -33,59 +37,21 @@ public:
 	void operator=(const multi_bounded_queue&) = delete;
 
 protected:
-	struct hitlist_identifier {
-		multi_bounded_queue<Q<T>>* pthis;
-		std::vector<size_t> hitlist;
-	};
-
-	std::vector<size_t>& get_hitlist() {
-		thread_local std::vector<hitlist_identifier> hitlist_map;
-		thread_local hitlist_identifier* prev = nullptr;
-		if (prev && prev->pthis == this) return prev->hitlist;
-		for (auto& item : hitlist_map) {
-			if (item.pthis == this) {
-				prev = &item;
-				return item.hitlist;
-			}
-		}
-		hitlist_map.emplace_back(hitlist_identifier{ this, hitlist_sequence() });
-		return hitlist_map.back().hitlist;
-	}
-
-	struct enqueue_identifier {
-		multi_bounded_queue<Q<T>>* pthis;
-		size_t index;
-	};
-
-	size_t get_enqueue_index() {
-		thread_local std::vector<enqueue_identifier> index_map;
-		thread_local enqueue_identifier* prev = nullptr;
-		if (prev && prev->pthis == this) return prev->index;
-		for (auto& item : index_map) {
-			if (item.pthis == this) {
-				prev = &item;
-				return item.index;
-			}
-		}
-		size_t enqueue_index = _enqueue_indx.fetch_add(1) % _q.size();
-		index_map.emplace_back(enqueue_identifier{ this, enqueue_index });
-		return index_map.back().index;
-	}
 
 	template <typename R>
 	bool sp_enqueue_impl(R&& input) {
-		size_t indx = get_enqueue_index();
+		size_t indx = _enqueue_identifier.get_tlcl();
 		return _q[indx]->mp_enqueue(std::forward<R>(input));
 	}
 
 	template <typename R>
 	bool mp_enqueue_impl(R&& input) {
-		size_t indx = get_enqueue_index();
+		size_t indx = _enqueue_identifier.get_tlcl();
 		return _q[indx]->mp_enqueue(std::forward<R>(input));
 	}
 
 	bool sc_dequeue_impl(T& output) {
-		auto& hitlist = get_hitlist();
+		auto& hitlist = _hitlist.get_tlcl();
 		for (auto it = hitlist.begin(); it != hitlist.end(); ++it) {
 			if (_q[*it]->sc_dequeue(output)) {
 				for (auto it2 = hitlist.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
@@ -96,7 +62,7 @@ protected:
 	}
 
 	bool mc_dequeue_impl(T& output) {
-		auto& hitlist = get_hitlist();
+		auto& hitlist = _hitlist.get_tlcl();
 		for (auto it = hitlist.begin(); it != hitlist.end(); ++it) {
 			if (_q[*it]->mc_dequeue_uncontended(output)) {
 				for (auto it2 = hitlist.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
@@ -113,7 +79,7 @@ protected:
 	}
 
 	bool mc_dequeue_uncontended_impl(T& output) {
-		auto& hitlist = get_hitlist();
+		auto& hitlist = _hitlist.get_tlcl();
 		for (auto it = hitlist.begin(); it != hitlist.end(); ++it) {
 			if (_q[*it]->mc_dequeue_light(output)) {
 				for (auto it2 = hitlist.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
@@ -124,10 +90,68 @@ protected:
 	}
 
 private:
+	template <typename U>
+	class tlcl {
+	public:
+		tlcl(std::function<U()> defaultvalfunc = nullptr, std::function<void(U)> defaultdeletefunc = nullptr) :
+			_defaultvalfunc(defaultvalfunc),
+			_defaultdeletefunc(defaultdeletefunc)
+		{
+			std::lock_guard<std::mutex> lock(_m);
+			if (!_available.empty()) {
+				_mycounter = _available.back();
+				_available.pop_back();
+			}
+			else {
+				_mycounter = _counter++;
+			}
+		}
+
+		virtual ~tlcl() {
+			std::lock_guard<std::mutex> lock(_m);
+			_available.push_back(_mycounter);
+		}
+
+		U& get_tlcl() {
+			thread_local std::vector<std::pair<tlcl<U>*, U>> vec;
+			if (vec.size() <= _mycounter) vec.resize(_mycounter + 1);
+			auto& ret = vec[_mycounter];
+			if (ret.first != this) { //reset to default
+				if (_defaultdeletefunc && ret.first != nullptr) _defaultdeletefunc(ret.second);
+				if (_defaultvalfunc) ret.second = _defaultvalfunc();
+				ret.first = this;
+			}
+			return ret.second;
+		}
+
+	private:
+		std::function<U()> _defaultvalfunc;
+		std::function<void(U)> _defaultdeletefunc;
+		size_t _mycounter;
+		static size_t _counter;
+		static std::vector<size_t> _available;
+		static std::mutex _m;
+	};
+
 	std::vector<size_t> hitlist_sequence() {
 		std::vector<size_t> hitlist(_q.size());
 		std::iota(hitlist.begin(), hitlist.end(), 0);
 		return hitlist;
+	}
+
+	size_t get_enqueue_index() {
+		std::lock_guard<std::mutex> lock(_m);
+		if (_unused_enqueue_indexes.empty()) {
+			return (_enqueue_index++) % _q.size();
+		}
+		size_t ret = _unused_enqueue_indexes.back();
+		_unused_enqueue_indexes.pop_back();
+		return ret;
+	}
+
+	void return_enqueue_index(size_t index) {
+		std::lock_guard<std::mutex> lock(_m);
+		_unused_enqueue_indexes.push_back(index);
 	}
 
 	class padded_bounded_queue : public Q<T> {
@@ -137,9 +161,24 @@ private:
 		char padding[64];
 	};
 
+	std::vector<size_t> _unused_enqueue_indexes;
 	std::vector<std::unique_ptr<padded_bounded_queue>> _q;
 	std::atomic<size_t> _enqueue_indx{ 0 };
+	size_t				_enqueue_index{ 0 };
+	std::mutex			_m;
+	tlcl<std::vector<size_t>> _hitlist;
+	tlcl<size_t> _enqueue_identifier;
 };
+
+template <template <typename> class Q, typename T> template <typename U>
+size_t multi_bounded_queue<Q<T>>::tlcl<U>::_counter = 0;
+
+template <template <typename> class Q, typename T> template <typename U>
+std::vector<size_t> multi_bounded_queue<Q<T>>::tlcl<U>::_available;
+
+template <template <typename> class Q, typename T> template <typename U>
+std::mutex multi_bounded_queue<Q<T>>::tlcl<U>::_m;
+
 }//namespace bk_conq
 
 #endif // BK_CONQ_MULTI_BOUNDED_QUEUE_HPP
