@@ -26,7 +26,7 @@ template<typename T>
 class list_queue : public unbounded_queue<T, list_queue<T>> {
 	friend unbounded_queue<T, list_queue<T>>;
 	static const size_t BLOCK_SIZE = 1024;
-	static const size_t BLOCKS_ALLOCATED = 8;
+	static const size_t BLOCKS_ALLOCATED = 16;
 public:
 	list_queue() {
 		std::vector<list_node_t> vec(3);
@@ -98,9 +98,6 @@ private:
 		std::array<T, BLOCK_SIZE> data;
 		std::atomic<list_node_t*> next{ nullptr };
 		size_t indx{ 0 };
-
-		template<typename R>
-		list_node_t(R&& input) : data(std::forward<R>(input)) {}
 		list_node_t() {}
 	};
 
@@ -133,7 +130,6 @@ private:
 		return item;
 	}
 
-	template <bool store_on_failure=true>
 	inline bool list_take(T& output, list_node_t* item, std::atomic<list_node_t*>& list) {
 		if (item->indx != 0) { //success
 			output = std::move(item->data[--item->indx]);
@@ -149,15 +145,26 @@ private:
 			list.store(item, std::memory_order_release);
 			return true;
 		}
-		if (store_on_failure) {
-			list.store(item, std::memory_order_release);
-		}
+		list.store(item, std::memory_order_release);
 		return false;
 	}
 
 	bool dequeue_common(list_node_t* tail, T& output) {
 		//get item directly from tail
-		if (list_take<false>(output, tail, _tail)) return true;
+		if (tail->indx != 0) { //success
+			output = std::move(tail->data[--tail->indx]);
+			if (tail->indx == 0) { //if we are now empty
+				list_node_t *next = tail->next.load(std::memory_order_acquire);
+				if (next) { //we only want to progress if tail->next is valid
+					_tail.store(next, std::memory_order_release);
+					freelist_enqueue(tail);
+					return true;
+				}
+			}
+			//either more elements or next node is nullptr so can't progress
+			_tail.store(tail, std::memory_order_release);
+			return true;
+		}
 		
 		//nothing in tail, go next
 		list_node_t *next = tail->next.load(std::memory_order_acquire);
@@ -187,12 +194,52 @@ private:
 		return list_dequeue(_in_progress_tail);
 	}
 
-	bool try_get_from_inprogress(T& output) {
-		list_node_t *item;
+	inline bool try_get_from_inprogress_tail(T& output) {
+		list_node_t* item;
 		for (item = _in_progress_tail.exchange(nullptr, std::memory_order_acq_rel); !item; item = _in_progress_tail.exchange(nullptr, std::memory_order_acq_rel)) {
 			std::this_thread::yield();
 		}
-		return list_take(output, item, _in_progress_tail);
+
+		if (item->indx != 0) { //success
+			output = std::move(item->data[--item->indx]);
+			if (item->indx == 0) { //if we are now empty
+				list_node_t *next = item->next.load(std::memory_order_acquire);
+				if (next) { //we only want to progress if tail->next is valid
+					_in_progress_tail.store(next, std::memory_order_release);
+					freelist_enqueue(item);
+					return true;
+				}
+			}
+			//either more elements or next node is nullptr so can't progress
+			_in_progress_tail.store(item, std::memory_order_release);
+			return true;
+		}
+		_in_progress_tail.store(item, std::memory_order_release);
+
+		return false;
+	}
+
+	bool try_get_from_inprogress(T& output) {
+		//return try_get_from_inprogress_tail(output);
+		list_node_t *item = inprogress_try_dequeue();
+		if (item == nullptr) {
+			return try_get_from_inprogress_tail(output);
+		}
+
+		if (item->indx != 0) { //success
+			output = std::move(item->data[--item->indx]);
+			if (item->indx == 0) { //if we are now empty
+				freelist_enqueue(item);
+			}
+			else {
+				item->next.store(nullptr, std::memory_order_relaxed);
+				list_node_t* prev_head = _head.exchange(item, std::memory_order_acq_rel);
+				prev_head->next.store(item, std::memory_order_release);
+			}
+			return true;
+		}
+		freelist_enqueue(item);
+		return try_get_from_inprogress(output);
 	}
 
 	
@@ -243,8 +290,6 @@ private:
 	std::atomic<storage_node_t*> _storage_head{ new storage_node_t };
 	std::atomic<list_node_t*>   _in_progress_tail;
 	std::atomic<storage_node_t*> _storage_tail{ _storage_head.load(std::memory_order_relaxed) };
-	
-
 };
 }//namespace bk_conq
 
