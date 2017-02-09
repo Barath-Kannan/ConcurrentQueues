@@ -144,7 +144,7 @@ private:
 	size_t get_enqueue_index() {
 		std::lock_guard<std::mutex> lock(_m);
 		if (_unused_enqueue_indexes.empty()) {
-			return _enqueue_index++;
+			return (_enqueue_index++)%_q.size();
 		}
 		size_t ret = _unused_enqueue_indexes.back();
 		_unused_enqueue_indexes.pop_back();
