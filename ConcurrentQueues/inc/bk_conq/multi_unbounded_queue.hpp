@@ -16,6 +16,7 @@
 #include <thread>
 #include <vector>
 #include <mutex>
+#include <numeric>
 #include <bk_conq/unbounded_queue.hpp>
 
 namespace bk_conq {
@@ -161,7 +162,6 @@ private:
 	};
 
 	std::vector<padded_unbounded_queue> _q;
-	
 	std::vector<size_t> _unused_enqueue_indexes;
 	size_t				_enqueue_index{ 0 };
 	std::mutex			_m;
