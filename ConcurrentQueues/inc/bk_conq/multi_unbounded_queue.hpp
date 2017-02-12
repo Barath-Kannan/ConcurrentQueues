@@ -31,7 +31,7 @@ public:
 	multi_unbounded_queue(size_t subqueues) :
 		_q(subqueues),
 		_hitlist([&]() {return hitlist_sequence(); }),
-		_enqueue_identifier([&]() { return get_enqueue_index(); }, [&](size_t indx) {return return_enqueue_index(indx); })
+		_enqueue_identifier([&]() { return get_enqueue_index(); }, [&](padded_unbounded_queue* indx) {return return_enqueue_index(indx); })
 	{
 		static_assert(std::is_base_of<bk_conq::unbounded_queue_typed_tag<T>, Q<T>>::value, "Q<T> must be an unbounded queue");
 	}
@@ -42,21 +42,22 @@ public:
 protected:
 	template <typename R>
 	void sp_enqueue_impl(R&& input) {
-		size_t indx = _enqueue_identifier.get_tlcl();
-		_q[indx].sp_enqueue(std::forward<R>(input));
+		_enqueue_identifier.get_tlcl()->sp_enqueue(std::forward<R>(input));
 	}
 
 	template <typename R>
 	void mp_enqueue_impl(R&& input) {
-		size_t indx = _enqueue_identifier.get_tlcl();
-		_q[indx].mp_enqueue(std::forward<R>(input));
+		_enqueue_identifier.get_tlcl()->mp_enqueue(std::forward<R>(input));
 	}
 
 	bool sc_dequeue_impl(T& output) {
 		auto& hitlist = _hitlist.get_tlcl();
-		for (auto it = hitlist.begin(); it != hitlist.end(); ++it) {
+		for (auto it = hitlist.cbegin(); it != hitlist.cend(); ++it) {
 			if (_q[*it].sc_dequeue(output)) {
-				for (auto it2 = hitlist.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
+				if (hitlist.cbegin() == it) return true;
+				//as below
+				auto nonconstit = hitlist.erase(it, it);
+				for (auto it2 = hitlist.begin(); it2 != nonconstit; ++it2) std::iter_swap(nonconstit, it2);
 				return true;
 			}
 		}
@@ -65,15 +66,22 @@ protected:
 
 	bool mc_dequeue_impl(T& output) {
 		auto& hitlist = _hitlist.get_tlcl();
-		for (auto it = hitlist.begin(); it != hitlist.end(); ++it) {
+		for (auto it = hitlist.cbegin(); it != hitlist.cend(); ++it) {
 			if (_q[*it].mc_dequeue_uncontended(output)) {
-				for (auto it2 = hitlist.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
+				if (hitlist.cbegin() == it) return true;
+				//funky magic - range erase returns an iterator, but an empty range is provided so contents aren't changed
+				//this converts a const iterator to an iterator in constant time
+				auto nonconstit = hitlist.erase(it, it);
+				for (auto it2 = hitlist.begin(); it2 != nonconstit; ++it2) std::iter_swap(nonconstit, it2);
 				return true;
 			}
 		}
-		for (auto it = hitlist.begin(); it != hitlist.end(); ++it) {
+		for (auto it = hitlist.cbegin(); it != hitlist.cend(); ++it) {
 			if (_q[*it].mc_dequeue(output)) {
-				for (auto it2 = hitlist.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
+				if (hitlist.cbegin() == it) return true;
+				//as above
+				auto nonconstit = hitlist.erase(it, it);
+				for (auto it2 = hitlist.begin(); it2 != nonconstit; ++it2) std::iter_swap(nonconstit, it2);
 				return true;
 			}
 		}
@@ -82,9 +90,12 @@ protected:
 
 	bool mc_dequeue_uncontended_impl(T& output) {
 		auto& hitlist = _hitlist.get_tlcl();
-		for (auto it = hitlist.begin(); it != hitlist.end(); ++it) {
+		for (auto it = hitlist.cbegin(); it != hitlist.cend(); ++it) {
 			if (_q[*it].mc_dequeue_uncontended(output)) {
-				for (auto it2 = hitlist.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
+				if (hitlist.cbegin() == it) return true;
+				//as above
+				auto nonconstit = hitlist.erase(it, it);
+				for (auto it2 = hitlist.begin(); it2 != nonconstit; ++it2) std::iter_swap(nonconstit, it2);
 				return true;
 			}
 		}
@@ -115,16 +126,21 @@ private:
 			_available.push_back(_mycounter);
 		}
 
-		U& get_tlcl() {
-			thread_local std::vector<std::pair<tlcl<U>*, U>> vec;
+		struct id{
+			tlcl<U>* pointer{ nullptr };
+			U value;
+		};
+
+		inline U& get_tlcl() {
+			thread_local std::vector<id> vec;
 			if (vec.size() <= _mycounter) vec.resize(_mycounter+1);
 			auto& ret = vec[_mycounter];
-			if (ret.first != this) { //reset to default
-				if (_defaultdeletefunc && ret.first != nullptr) _defaultdeletefunc(ret.second);
-				if (_defaultvalfunc) ret.second = _defaultvalfunc();
-				ret.first = this;
+			if (ret.pointer != this) { //reset to default
+				if (_defaultdeletefunc && ret.pointer != nullptr) _defaultdeletefunc(ret.value);
+				if (_defaultvalfunc) ret.value = _defaultvalfunc();
+				ret.pointer = this;
 			}
-			return ret.second;
+			return ret.value;
 		}
 
 	private:
@@ -142,24 +158,30 @@ private:
 		return hitlist;
 	}
 
-	size_t get_enqueue_index() {
+	class padded_unbounded_queue : public Q<T> {
+		char padding[64];
+	};
+
+	padded_unbounded_queue* get_enqueue_index() {
 		std::lock_guard<std::mutex> lock(_m);
 		if (_unused_enqueue_indexes.empty()) {
-			return (_enqueue_index++)%_q.size();
+			return &_q[(_enqueue_index++) % _q.size()];
 		}
 		size_t ret = _unused_enqueue_indexes.back();
 		_unused_enqueue_indexes.pop_back();
-		return ret;
+		return &_q[ret];
 	}
 
-	void return_enqueue_index(size_t index) {
+	void return_enqueue_index(padded_unbounded_queue* index) {
 		std::lock_guard<std::mutex> lock(_m);
-		_unused_enqueue_indexes.push_back(index);
+		for (size_t i = 0; i < _q.size(); ++i) {
+			if (&_q[i] == index) {
+				_unused_enqueue_indexes.push_back(i);
+				return;
+			}
+		}
+		
 	}
-
-	class padded_unbounded_queue : public Q<T>{
-		char padding[64];
-	};
 
 	std::vector<padded_unbounded_queue> _q;
 	std::vector<size_t> _unused_enqueue_indexes;
@@ -167,7 +189,7 @@ private:
 	std::mutex			_m;
 
 	tlcl<std::vector<size_t>> _hitlist;
-	tlcl<size_t> _enqueue_identifier;
+	tlcl<padded_unbounded_queue*> _enqueue_identifier;
 };
 
 template <template <typename> class Q, typename T> template <typename U>

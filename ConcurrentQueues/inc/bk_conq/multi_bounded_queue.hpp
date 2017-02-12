@@ -52,9 +52,12 @@ protected:
 
 	bool sc_dequeue_impl(T& output) {
 		auto& hitlist = _hitlist.get_tlcl();
-		for (auto it = hitlist.begin(); it != hitlist.end(); ++it) {
+		for (auto it = hitlist.cbegin(); it != hitlist.cend(); ++it) {
 			if (_q[*it]->sc_dequeue(output)) {
-				for (auto it2 = hitlist.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
+				if (hitlist.cbegin() == it) return true;
+				//as below
+				auto nonconstit = hitlist.erase(it, it);
+				for (auto it2 = hitlist.begin(); it2 != nonconstit; ++it2) std::iter_swap(nonconstit, it2);
 				return true;
 			}
 		}
@@ -63,15 +66,22 @@ protected:
 
 	bool mc_dequeue_impl(T& output) {
 		auto& hitlist = _hitlist.get_tlcl();
-		for (auto it = hitlist.begin(); it != hitlist.end(); ++it) {
+		for (auto it = hitlist.cbegin(); it != hitlist.cend(); ++it) {
 			if (_q[*it]->mc_dequeue_uncontended(output)) {
-				for (auto it2 = hitlist.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
+				if (hitlist.cbegin() == it) return true;
+				//funky magic - range erase returns an iterator, but an empty range is provided so contents aren't changed
+				//this converts a const iterator to an iterator in constant time
+				auto nonconstit = hitlist.erase(it, it);
+				for (auto it2 = hitlist.begin(); it2 != nonconstit; ++it2) std::iter_swap(nonconstit, it2);
 				return true;
 			}
 		}
-		for (auto it = hitlist.begin(); it != hitlist.end(); ++it) {
+		for (auto it = hitlist.cbegin(); it != hitlist.cend(); ++it) {
 			if (_q[*it]->mc_dequeue(output)) {
-				for (auto it2 = hitlist.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
+				if (hitlist.cbegin() == it) return true;
+				//as above
+				auto nonconstit = hitlist.erase(it, it);
+				for (auto it2 = hitlist.begin(); it2 != nonconstit; ++it2) std::iter_swap(nonconstit, it2);
 				return true;
 			}
 		}
@@ -80,9 +90,12 @@ protected:
 
 	bool mc_dequeue_uncontended_impl(T& output) {
 		auto& hitlist = _hitlist.get_tlcl();
-		for (auto it = hitlist.begin(); it != hitlist.end(); ++it) {
-			if (_q[*it]->mc_dequeue_light(output)) {
-				for (auto it2 = hitlist.begin(); it2 != it; ++it2) std::iter_swap(it, it2);
+		for (auto it = hitlist.cbegin(); it != hitlist.cend(); ++it) {
+			if (_q[*it]->mc_dequeue_uncontended(output)) {
+				if (hitlist.cbegin() == it) return true;
+				//as above
+				auto nonconstit = hitlist.erase(it, it);
+				for (auto it2 = hitlist.begin(); it2 != nonconstit; ++it2) std::iter_swap(nonconstit, it2);
 				return true;
 			}
 		}
