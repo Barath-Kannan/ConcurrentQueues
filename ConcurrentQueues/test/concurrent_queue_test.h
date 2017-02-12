@@ -17,6 +17,7 @@
 #include <bk_conq/bounded_list_queue.hpp>
 #include <bk_conq/vector_queue.hpp>
 #include <bk_conq/list_queue.hpp>
+#include <bk_conq/chain_queue.hpp>
 #include "basic_timer.h"
 
 enum QueueTestType : uint32_t{
@@ -61,6 +62,7 @@ protected:
     TestParameters _params;
 	std::thread _monitorThread;
 	std::atomic<bool> _startFlag{ false };
+	std::atomic<size_t> _sync{ 0 };
 
     template<typename T, typename R, typename ...Args>
     void GenericTest(std::function<void(T&, R&) > dequeueOperation, std::function<void(T&, R) > enqueueOperation, Args... args) {
@@ -68,14 +70,15 @@ protected:
         std::vector<std::thread> l;
         for (size_t i = 0; i < _params.nReaders; ++i) {
             l.emplace_back([&, i]() {
-				while (!_startFlag.load(std::memory_order_acquire)) { std::this_thread::yield(); }
+				++_sync;
+				while (!_startFlag.load(std::memory_order_acquire)) { std::this_thread::yield(); };
 				readers[i].start();
 				queue_test_type_t res;
                 for (size_t j = 0; j < _params.nElements / _params.nReaders; ++j) {
                     dequeueOperation(q, res);
 					//if (j % 100000 == 0) std::cout << "d" << j << std::endl;
 					//if (_params.nElements/_params.nReaders -j < 100000) std::cout << "z" << j << std::endl;
-					//if (_params.nElements / _params.nReaders - j < 10000) break;
+					//if (_params.nElements / _params.nReaders - j < 100000) break;
                 }
                 if (i == 0) {
                     size_t remainder = _params.nElements - ((_params.nElements / _params.nReaders) * _params.nReaders);
@@ -88,7 +91,8 @@ protected:
         }
         for (size_t i = 0; i < _params.nWriters; ++i) {
             l.emplace_back([&, i]() {
-				while (!_startFlag.load(std::memory_order_acquire)) { std::this_thread::yield(); }
+				++_sync;
+				while (!_startFlag.load(std::memory_order_acquire)) { std::this_thread::yield(); };
                 writers[i].start();
                 for (size_t j = 0; j < _params.nElements / _params.nWriters; ++j) {
                     enqueueOperation(q, j);
@@ -103,10 +107,14 @@ protected:
                 writers[i].stop();
             });
         }
+		while (_sync.load() != _params.nWriters + _params.nReaders) { std::this_thread::yield(); };
 		_startFlag.store(true, std::memory_order_release);
         for (size_t i = 0; i < _params.nReaders + _params.nWriters; ++i) {
             l[i].join();
         }
+
+		l.clear();
+		
     }
 
 	auto generateBusyDequeue() {
@@ -129,7 +137,7 @@ protected:
 
 	auto generateBackoffDequeue() {
 		return ([](auto& q, auto& item) {
-			auto wait_time = std::chrono::nanoseconds(10);
+			auto wait_time = std::chrono::nanoseconds(1);
 			while (!q.mc_dequeue(item)) {
 				std::this_thread::sleep_for(wait_time);
 				wait_time *= 2;
@@ -158,7 +166,7 @@ protected:
 	auto generateBackoffEnqueue() {
 		return ([](auto& q, auto item) {
 			auto wait_time = std::chrono::nanoseconds(1);
-			while (!q.mp_enqueue(item)); { std::this_thread::sleep_for(wait_time); wait_time *= 2; }
+			while (!q.mp_enqueue(item)) { std::this_thread::sleep_for(wait_time); wait_time *= 2; }
 		});
 	}
 
