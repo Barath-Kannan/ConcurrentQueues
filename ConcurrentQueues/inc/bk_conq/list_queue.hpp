@@ -18,6 +18,7 @@
 #include <vector>
 #include <array>
 #include <memory>
+#include <iostream>
 #include <bk_conq/unbounded_queue.hpp>
 
 namespace bk_conq {
@@ -25,17 +26,14 @@ namespace bk_conq {
 template<typename T>
 class list_queue : public unbounded_queue<T, list_queue<T>> {
 	friend unbounded_queue<T, list_queue<T>>;
-	static const size_t BLOCK_SIZE = 1024;
-	static const size_t BLOCKS_ALLOCATED = 16;
 public:
 	list_queue() {
-		std::vector<list_node_t> vec(3);
+		std::vector<list_node_t> vec(2);
 		_head.store(&vec[0]);
 		_tail.store(_head.load(std::memory_order_relaxed), std::memory_order_relaxed);
 		_free_list_head.store(&vec[1]);
 		_free_list_tail.store(_free_list_head.load(std::memory_order_relaxed), std::memory_order_relaxed);
-		_in_progress_head.store(&vec[2]);
-		_in_progress_tail.store(_in_progress_head.load(std::memory_order_relaxed), std::memory_order_relaxed);
+
 		storage_node_t *store = new storage_node_t(std::move(vec));
 		storage_node_t* prev_head = _storage_head.exchange(store, std::memory_order_acq_rel);
 		prev_head->next.store(store, std::memory_order_release);
@@ -44,7 +42,7 @@ public:
 	virtual ~list_queue() {
 		storage_node_t* tail = _storage_tail.load(std::memory_order_relaxed);
 		storage_node_t* next = tail->next.load(std::memory_order_relaxed);
-		for(storage_node_t* next = tail->next.load(std::memory_order_relaxed); next != nullptr; ) {
+		for (storage_node_t* next = tail->next.load(std::memory_order_relaxed); next != nullptr; ) {
 			tail = next;
 			next = next->next.load(std::memory_order_relaxed);
 			delete tail;
@@ -58,22 +56,25 @@ protected:
 	template <typename R>
 	void sp_enqueue_impl(R&& input) {
 		list_node_t *node = acquire_or_allocate(std::forward<R>(input));
-		if (!node) return;
 		_head.load(std::memory_order_relaxed)->next.store(node, std::memory_order_release);
 		_head.store(node, std::memory_order_relaxed);
 	}
 
 	template <typename R>
-	void mp_enqueue_impl(R&& input){
+	void mp_enqueue_impl(R&& input) {
 		list_node_t *node = acquire_or_allocate(std::forward<R>(input));
-		if (!node) return;
 		list_node_t* prev_head = _head.exchange(node, std::memory_order_acq_rel);
 		prev_head->next.store(node, std::memory_order_release);
 	}
 
 	bool sc_dequeue_impl(T& output) {
 		list_node_t* tail = _tail.load(std::memory_order_relaxed);
-		return dequeue_common(tail, output);
+		list_node_t* next = tail->next.load(std::memory_order_acquire);
+		if (!next) return false;
+		output = std::move(next->data);
+		_tail.store(next, std::memory_order_release);
+		freelist_enqueue(tail);
+		return true;
 	}
 
 	//spin on dequeue contention
@@ -82,22 +83,40 @@ protected:
 		for (tail = _tail.exchange(nullptr, std::memory_order_acq_rel); !tail; tail = _tail.exchange(nullptr, std::memory_order_acq_rel)) {
 			std::this_thread::yield();
 		}
-		return dequeue_common(tail, output);
+		list_node_t *next = tail->next.load(std::memory_order_acquire);
+		if (!next) {
+			_tail.exchange(tail, std::memory_order_acq_rel);
+			return false;
+		}
+		output = std::move(next->data);
+		_tail.store(next, std::memory_order_release);
+		freelist_enqueue(tail);
+		return true;
 	}
 
 	//return false on dequeue contention
 	bool mc_dequeue_uncontended_impl(T& output) {
 		list_node_t *tail = _tail.exchange(nullptr, std::memory_order_acq_rel);
 		if (!tail) return false;
-		return dequeue_common(tail, output);
+		list_node_t *next = tail->next.load(std::memory_order_acquire);
+		if (!next) {
+			_tail.exchange(tail, std::memory_order_acq_rel);
+			return false;
+		}
+		output = std::move(next->data);
+		_tail.store(next, std::memory_order_release);
+		freelist_enqueue(tail);
+		return true;
 	}
 
 private:
 
 	struct list_node_t {
-		std::array<T, BLOCK_SIZE> data;
+		T data;
 		std::atomic<list_node_t*> next{ nullptr };
-		size_t indx{ 0 };
+
+		template<typename R>
+		list_node_t(R&& input) : data(std::forward<R>(input)) {}
 		list_node_t() {}
 	};
 
@@ -110,173 +129,54 @@ private:
 		storage_node_t() {}
 	};
 
-	inline void list_enqueue(list_node_t* item, std::atomic<list_node_t*>& head) {
-		item->next.store(nullptr, std::memory_order_relaxed);
-		list_node_t * prev_head = head.exchange(item, std::memory_order_acq_rel);
-		prev_head->next.store(item, std::memory_order_release);
-	}
-
-	inline list_node_t* list_dequeue(std::atomic<list_node_t*>& tail) {
-		list_node_t *item;
-		for (item = tail.exchange(nullptr, std::memory_order_acq_rel); !item; item = tail.exchange(nullptr, std::memory_order_acq_rel)) {
-			std::this_thread::yield();
-		}
-		list_node_t *next = item->next.load(std::memory_order_acquire);
-		if (!next) {
-			tail.store(item, std::memory_order_release);
-			return false;
-		}
-		tail.store(next, std::memory_order_release);
-		return item;
-	}
-
-	inline bool list_take(T& output, list_node_t* item, std::atomic<list_node_t*>& list) {
-		if (item->indx != 0) { //success
-			output = std::move(item->data[--item->indx]);
-			if (item->indx == 0) { //if we are now empty
-				list_node_t *next = item->next.load(std::memory_order_acquire);
-				if (next) { //we only want to progress if tail->next is valid
-					list.store(next, std::memory_order_release);
-					freelist_enqueue(item);
-					return true;
-				}
-			}
-			//either more elements or next node is nullptr so can't progress
-			list.store(item, std::memory_order_release);
-			return true;
-		}
-		list.store(item, std::memory_order_release);
-		return false;
-	}
-
-	bool dequeue_common(list_node_t* tail, T& output) {
-		//get item directly from tail
-		if (tail->indx != 0) { //success
-			output = std::move(tail->data[--tail->indx]);
-			if (tail->indx == 0) { //if we are now empty
-				list_node_t *next = tail->next.load(std::memory_order_acquire);
-				if (next) { //we only want to progress if tail->next is valid
-					_tail.store(next, std::memory_order_release);
-					freelist_enqueue(tail);
-					return true;
-				}
-			}
-			//either more elements or next node is nullptr so can't progress
-			_tail.store(tail, std::memory_order_release);
-			return true;
-		}
-		
-		//nothing in tail, go next
-		list_node_t *next = tail->next.load(std::memory_order_acquire);
-		if (!next) {
-			//restore the tail so that other dequeue operations can progress
-			_tail.store(tail, std::memory_order_release);
-			return try_get_from_inprogress(output);
-		}
-		freelist_enqueue(tail);
-		return dequeue_common(next, output);
-	}
-
-	
 	void freelist_enqueue(list_node_t *item) {
-		list_enqueue(item, _free_list_head);
+		item->next.store(nullptr, std::memory_order_relaxed);
+		list_node_t * free_list_prev_head = _free_list_head.exchange(item, std::memory_order_acq_rel);
+		free_list_prev_head->next.store(item, std::memory_order_release);
 	}
 
 	list_node_t* freelist_try_dequeue() {
-		return list_dequeue(_free_list_tail);
-	}
-
-	void inprogress_enqueue(list_node_t *item) {
-		list_enqueue(item, _in_progress_head);
-	}
-
-	list_node_t* inprogress_try_dequeue() {
-		return list_dequeue(_in_progress_tail);
-	}
-
-	inline bool try_get_from_inprogress_tail(T& output) {
-		list_node_t* item;
-		for (item = _in_progress_tail.exchange(nullptr, std::memory_order_acq_rel); !item; item = _in_progress_tail.exchange(nullptr, std::memory_order_acq_rel)) {
+		list_node_t *item;
+		for (item = _free_list_tail.exchange(nullptr, std::memory_order_acq_rel); !item; item = _free_list_tail.exchange(nullptr, std::memory_order_acq_rel)) {
 			std::this_thread::yield();
 		}
-
-		if (item->indx != 0) { //success
-			output = std::move(item->data[--item->indx]);
-			if (item->indx == 0) { //if we are now empty
-				list_node_t *next = item->next.load(std::memory_order_acquire);
-				if (next) { //we only want to progress if tail->next is valid
-					_in_progress_tail.store(next, std::memory_order_release);
-					freelist_enqueue(item);
-					return true;
-				}
-			}
-			//either more elements or next node is nullptr so can't progress
-			_in_progress_tail.store(item, std::memory_order_release);
-			return true;
+		list_node_t* next = item->next.load(std::memory_order_acquire);
+		if (!next) {
+			_free_list_tail.store(item, std::memory_order_release);
+			return nullptr;
 		}
-		_in_progress_tail.store(item, std::memory_order_release);
-
-		return false;
-	}
-
-	bool try_get_from_inprogress(T& output) {
-		//return try_get_from_inprogress_tail(output);
-		list_node_t *item = inprogress_try_dequeue();
-		if (item == nullptr) {
-			return try_get_from_inprogress_tail(output);
-		}
-
-		if (item->indx != 0) { //success
-			output = std::move(item->data[--item->indx]);
-			if (item->indx == 0) { //if we are now empty
-				freelist_enqueue(item);
-			}
-			else {
-				item->next.store(nullptr, std::memory_order_relaxed);
-				list_node_t* prev_head = _head.exchange(item, std::memory_order_acq_rel);
-				prev_head->next.store(item, std::memory_order_release);
-			}
-			return true;
-		}
-		freelist_enqueue(item);
-		return try_get_from_inprogress(output);
-	}
-
-	
-	inline list_node_t* allocate() {
-		std::vector<list_node_t> vec(BLOCKS_ALLOCATED);
-
-		//store the sequencing chain here before it goes on the freelist
-		for (size_t i = 2; i < BLOCKS_ALLOCATED; ++i) {
-			vec[i].next.store(&vec[i - 1], std::memory_order_relaxed);
-		}
-
-		//connect the chains
-		list_node_t* free_list_prev_head = _free_list_head.exchange(&vec[1], std::memory_order_acq_rel);
-		free_list_prev_head->next.store(&vec[BLOCKS_ALLOCATED - 1], std::memory_order_release);
-
-		//the first one is reserved for this acquire_or_allocate call
-		auto node = &vec[0];
-
-		//store the node on the storage queue for retrieval later
-		storage_node_t *store = new storage_node_t(std::move(vec));
-		storage_node_t* prev_head = _storage_head.exchange(store, std::memory_order_acq_rel);
-		prev_head->next.store(store, std::memory_order_release);
-		
-		return node;
+		_free_list_tail.store(next, std::memory_order_release);
+		return item;
 	}
 
 	template<typename R>
 	list_node_t *acquire_or_allocate(R&& input) {
-		list_node_t* node = inprogress_try_dequeue(); //try get space from the in progress enqueue operations
-		if (!node) node = freelist_try_dequeue();//attempt to recycle previously used storage 
-		if (!node) node = allocate(); //allocate new storage
-		node->data[node->indx++] = std::forward<R>(input);
-		node->next.store(nullptr, std::memory_order_release);
-		if (node->indx != node->data.size()) {
-			inprogress_enqueue(node);
-			return nullptr;
+		//attempt to recycle previously used storage
+		list_node_t* node = freelist_try_dequeue();
+		if (!node) {
+			//pre-allocate for 32 nodes
+			static const size_t allocsize = 32;
+			std::vector<list_node_t> vec(allocsize);
+
+			//store the sequencing chain here before it goes on the freelist
+			for (size_t i = 2; i < allocsize; ++i) {
+				vec[i].next.store(&vec[i - 1], std::memory_order_relaxed);
+			}
+
+			//connect the chains
+			list_node_t* free_list_prev_head = _free_list_head.exchange(&vec[1], std::memory_order_acq_rel);
+			free_list_prev_head->next.store(&vec[allocsize - 1], std::memory_order_release);
+
+			//the first one is reserved for this acquire_or_allocate call
+			node = &vec[0];
+
+			//store the node on the storage queue for retrieval later
+			storage_node_t *store = new storage_node_t(std::move(vec));
+			storage_node_t* prev_head = _storage_head.exchange(store, std::memory_order_acq_rel);
+			prev_head->next.store(store, std::memory_order_release);
+
 		}
+		node->data = std::forward<R>(input);
 		return node;
 	}
 
@@ -285,11 +185,9 @@ private:
 	char                        _padding[64];
 	std::atomic<list_node_t*>   _tail;
 	std::atomic<list_node_t*>   _free_list_head;
-	char						_padding2[64];
-	std::atomic<list_node_t*>   _in_progress_head;
 	std::atomic<storage_node_t*> _storage_head{ new storage_node_t };
-	std::atomic<list_node_t*>   _in_progress_tail;
 	std::atomic<storage_node_t*> _storage_tail{ _storage_head.load(std::memory_order_relaxed) };
+
 };
 }//namespace bk_conq
 
