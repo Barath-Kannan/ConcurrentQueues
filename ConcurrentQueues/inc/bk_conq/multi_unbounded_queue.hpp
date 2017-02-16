@@ -18,6 +18,7 @@
 #include <mutex>
 #include <numeric>
 #include <bk_conq/unbounded_queue.hpp>
+#include <bk_conq/details/tlos.hpp>
 
 namespace bk_conq {
 
@@ -42,16 +43,16 @@ public:
 protected:
 	template <typename R>
 	void sp_enqueue_impl(R&& input) {
-		_enqueue_identifier.get_tlcl()->sp_enqueue(std::forward<R>(input));
+		_enqueue_identifier.get()->sp_enqueue(std::forward<R>(input));
 	}
 
 	template <typename R>
 	void mp_enqueue_impl(R&& input) {
-		_enqueue_identifier.get_tlcl()->mp_enqueue(std::forward<R>(input));
+		_enqueue_identifier.get()->mp_enqueue(std::forward<R>(input));
 	}
 
 	bool sc_dequeue_impl(T& output) {
-		auto& hitlist = _hitlist.get_tlcl();
+		auto& hitlist = _hitlist.get();
 		for (auto it = hitlist.cbegin(); it != hitlist.cend(); ++it) {
 			if (_q[*it].sc_dequeue(output)) {
 				if (hitlist.cbegin() == it) return true;
@@ -65,7 +66,7 @@ protected:
 	}
 
 	bool mc_dequeue_impl(T& output) {
-		auto& hitlist = _hitlist.get_tlcl();
+		auto& hitlist = _hitlist.get();
 		for (auto it = hitlist.cbegin(); it != hitlist.cend(); ++it) {
 			if (_q[*it].mc_dequeue_uncontended(output)) {
 				if (hitlist.cbegin() == it) return true;
@@ -89,7 +90,7 @@ protected:
 	}
 
 	bool mc_dequeue_uncontended_impl(T& output) {
-		auto& hitlist = _hitlist.get_tlcl();
+		auto& hitlist = _hitlist.get();
 		for (auto it = hitlist.cbegin(); it != hitlist.cend(); ++it) {
 			if (_q[*it].mc_dequeue_uncontended(output)) {
 				if (hitlist.cbegin() == it) return true;
@@ -103,64 +104,15 @@ protected:
 	}
 
 private:
+    class padded_unbounded_queue : public Q<T> {
+        char padding[64];
+    };
 
-	template <typename U>
-	class tlcl {
-	public:
-		tlcl(std::function<U()> defaultvalfunc = nullptr, std::function<void(U)> defaultdeletefunc = nullptr) :
-			_defaultvalfunc(defaultvalfunc),
-			_defaultdeletefunc(defaultdeletefunc)
-		{
-			std::lock_guard<std::mutex> lock(_m);
-			if (!_available.empty()) {
-				_mycounter = _available.back();
-				_available.pop_back();
-			}
-			else {
-				_mycounter = _counter++;
-			}
-		}
-
-		virtual ~tlcl() {
-			std::lock_guard<std::mutex> lock(_m);
-			_available.push_back(_mycounter);
-		}
-
-		struct id{
-			tlcl<U>* pointer{ nullptr };
-			U value;
-		};
-
-		inline U& get_tlcl() {
-			thread_local std::vector<id> vec;
-			if (vec.size() <= _mycounter) vec.resize(_mycounter+1);
-			auto& ret = vec[_mycounter];
-			if (ret.pointer != this) { //reset to default
-				if (_defaultdeletefunc && ret.pointer != nullptr) _defaultdeletefunc(ret.value);
-				if (_defaultvalfunc) ret.value = _defaultvalfunc();
-				ret.pointer = this;
-			}
-			return ret.value;
-		}
-
-	private:
-		std::function<U()> _defaultvalfunc;
-		std::function<void(U)> _defaultdeletefunc;
-		size_t _mycounter;
-		static size_t _counter;
-		static std::vector<size_t> _available;
-		static std::mutex _m;
-	};
-
-	std::vector<size_t> hitlist_sequence() {
-		std::vector<size_t> hitlist(_q.size());
-		std::iota(hitlist.begin(), hitlist.end(), 0);
-		return hitlist;
-	}
-
-	class padded_unbounded_queue : public Q<T> {
-		char padding[64];
-	};
+    std::vector<size_t> hitlist_sequence() {
+        std::vector<size_t> hitlist(_q.size());
+        std::iota(hitlist.begin(), hitlist.end(), 0);
+        return hitlist;
+    }
 
 	padded_unbounded_queue* get_enqueue_index() {
 		std::lock_guard<std::mutex> lock(_m);
@@ -180,7 +132,6 @@ private:
 				return;
 			}
 		}
-		
 	}
 
 	std::vector<padded_unbounded_queue> _q;
@@ -188,18 +139,9 @@ private:
 	size_t				_enqueue_index{ 0 };
 	std::mutex			_m;
 
-	tlcl<std::vector<size_t>> _hitlist;
-	tlcl<padded_unbounded_queue*> _enqueue_identifier;
+	details::tlos<std::vector<size_t>, multi_unbounded_queue<Q<T>>> _hitlist;
+	details::tlos<padded_unbounded_queue*, multi_unbounded_queue<Q<T>>> _enqueue_identifier;
 };
-
-template <template <typename> class Q, typename T> template <typename U>
-size_t multi_unbounded_queue<Q<T>>::tlcl<U>::_counter = 0;
-
-template <template <typename> class Q, typename T> template <typename U>
-std::vector<size_t> multi_unbounded_queue<Q<T>>::tlcl<U>::_available;
-
-template <template <typename> class Q, typename T> template <typename U>
-std::mutex multi_unbounded_queue<Q<T>>::tlcl<U>::_m;
 
 }//namespace bk_conq
 
