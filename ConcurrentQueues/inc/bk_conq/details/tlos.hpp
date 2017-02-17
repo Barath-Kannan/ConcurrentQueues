@@ -15,7 +15,6 @@
 
 namespace bk_conq{
 namespace details{
-
 template <typename T, typename OWNER = void>
 class tlos {
 public:
@@ -45,10 +44,11 @@ public:
         std::lock_guard<std::mutex> lock(_m);
         //invoke the returner for all thread local boxes corresponding to this index
         for (returner* ret : _thread_locals) {
+            std::vector<box>& vec = (*ret)();
             //if the size is not greater than the index, the thread-local object was never accessed
             //and hence it was never initialized
-            if (_myindx < ret->size()) {
-                auto& box_instance = ret->at(_myindx);
+            if (_myindx < vec.size()) {
+                auto& box_instance = vec.at(_myindx);
                 //check if we've used that box
                 if (box_instance.owner_id == _myid) {
                     if (box_instance.returnfunc) box_instance.returnfunc(std::move(box_instance.value));
@@ -119,21 +119,31 @@ private:
         std::function<void(T&&)> returnfunc{ nullptr };
     };
 
-    class returner : public std::vector<box> {
+    class returner {
+    private:
+        std::vector<box> _v;
     public:
         returner() {
             std::lock_guard<std::mutex> lock(_m);
             _thread_locals.insert(this);
         }
 
+        std::vector<box>& get() {
+            return _v;
+        }
+
+        std::vector<box>& operator()() {
+            return get();
+        }
+
         //This thread local object's dtor invokes the returnfunc for all thread-local items
         //whose owning object has not already gone out of scope and who have defined a _returnfunc.
         //It also removes the returner from the tracked set of thread local returners
-        virtual ~returner() {
+        ~returner() {
             std::lock_guard<std::mutex> lock(_m);
             //owners size will only be less if it was flushed by a tlos dtor
-            for (size_t i = 0; i < this->size() && i < _owners.size(); ++i) {
-                auto& current_id = this->at(i);
+            for (size_t i = 0; i < _v.size() && i < _owners.size(); ++i) {
+                auto& current_id = _v.at(i);
                 //check if a returnfunc has been defined, and
                 //check if the object who owns the item is still valid
                 if (current_id.returnfunc && current_id.owner_id && _owners[i] == current_id.owner_id) {
@@ -144,10 +154,10 @@ private:
         }
     };
 
-    returner& get_returner() {
+    std::vector<box>& get_returner() {
         //the vector of thread_local variables
         thread_local returner vec;
-        return vec;
+        return vec();
     }
 
     //defines a function to assign the initial value to the retrieved value, when it is first retrieved in a unique thread in a unique object

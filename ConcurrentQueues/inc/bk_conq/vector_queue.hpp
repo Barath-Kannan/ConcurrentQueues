@@ -25,7 +25,7 @@ class vector_queue : public bounded_queue<T, vector_queue<T>> {
 	friend bounded_queue<T, vector_queue<T>>;
 public:
 
-	vector_queue(size_t N) : _buffer(N) {
+	vector_queue(size_t N) : _buffer(N), _sm1(N-1) {
 		if ((N == 0) || ((N & (~N + 1)) != N)) {
 			throw std::length_error("size of vector_queue must be power of 2");
 		}
@@ -41,12 +41,12 @@ protected:
 	template <typename R>
 	bool sp_enqueue_impl(R&& input) {
 		size_t head_seq = _head_seq.load(std::memory_order_relaxed);
-		node_t* node = &_buffer[head_seq & (_buffer.size() - 1)];
-		size_t node_seq = node->seq.load(std::memory_order_acquire);
+		node_t& node = _buffer[head_seq & (_sm1)];
+		size_t node_seq = node.seq.load(std::memory_order_acquire);
 		intptr_t dif = (intptr_t)node_seq - (intptr_t)head_seq;
 		if (dif == 0 && _head_seq.compare_exchange_strong(head_seq, head_seq + 1, std::memory_order_relaxed)) {
-			node->data = std::forward<R>(input);
-			node->seq.store(head_seq + 1, std::memory_order_release);
+			node.data = std::forward<R>(input);
+			node.seq.store(head_seq + 1, std::memory_order_release);
 		}
 		return false;
 	}
@@ -55,13 +55,13 @@ protected:
 	bool mp_enqueue_impl(R&& input) {
 		while (true) {
 			size_t head_seq = _head_seq.load(std::memory_order_relaxed);
-			node_t* node = &_buffer[head_seq & (_buffer.size() - 1)];
-			size_t node_seq = node->seq.load(std::memory_order_acquire);
+			node_t& node = _buffer[head_seq & (_sm1)];
+			size_t node_seq = node.seq.load(std::memory_order_acquire);
 			intptr_t dif = (intptr_t)node_seq - (intptr_t)head_seq;
 			if (dif == 0) {
 				if (_head_seq.compare_exchange_weak(head_seq, head_seq + 1, std::memory_order_relaxed)) {
-					node->data = std::forward<R>(input);
-					node->seq.store(head_seq + 1, std::memory_order_release);
+					node.data = std::forward<R>(input);
+					node.seq.store(head_seq + 1, std::memory_order_release);
 					return true;
 				}
 			}
@@ -73,12 +73,12 @@ protected:
 
 	bool sc_dequeue_impl(T& data) {
 		size_t tail_seq = _tail_seq.load(std::memory_order_relaxed);
-		node_t* node = &_buffer[tail_seq & (_buffer.size() - 1)];
-		size_t node_seq = node->seq.load(std::memory_order_acquire);
+		node_t& node = _buffer[tail_seq & (_sm1)];
+		size_t node_seq = node.seq.load(std::memory_order_acquire);
 		intptr_t dif = (intptr_t)node_seq - (intptr_t)(tail_seq + 1);
 		if (dif == 0 && _tail_seq.compare_exchange_strong(tail_seq, tail_seq + 1, std::memory_order_relaxed)) {
-			data = std::move(node->data);
-			node->seq.store(tail_seq + _buffer.size(), std::memory_order_release);
+			data = std::move(node.data);
+			node.seq.store(tail_seq + _sm1+1, std::memory_order_release);
 			return true;
 		}
 		return false;
@@ -87,13 +87,13 @@ protected:
 	bool mc_dequeue_impl(T& data) {
 		while (true) {
 			size_t tail_seq = _tail_seq.load(std::memory_order_relaxed);
-			node_t* node = &_buffer[tail_seq & (_buffer.size() - 1)];
-			size_t node_seq = node->seq.load(std::memory_order_acquire);
+			node_t& node = _buffer[tail_seq & (_sm1)];
+			size_t node_seq = node.seq.load(std::memory_order_acquire);
 			intptr_t dif = (intptr_t)node_seq - (intptr_t)(tail_seq + 1);
 			if (dif == 0) {
 				if (_tail_seq.compare_exchange_weak(tail_seq, tail_seq + 1, std::memory_order_relaxed)) {
-					data = std::move(node->data);
-					node->seq.store(tail_seq + _buffer.size(), std::memory_order_release);
+					data = std::move(node.data);
+					node.seq.store(tail_seq + _sm1+1, std::memory_order_release);
 					return true;
 				}
 			}
@@ -108,7 +108,7 @@ protected:
 	}
 
 private:
-	struct node_t {
+    struct node_t {
 		T                     data;
 		std::atomic<size_t>   seq;
 	};
@@ -118,6 +118,8 @@ private:
 	std::atomic<size_t>     _head_seq{ 0 };
 	char                    _pad1[64];
 	std::atomic<size_t>     _tail_seq{ 0 };
+    char                    _pad2[64];
+    const size_t            _sm1;
 };
 } //namespace bk_conq
 
