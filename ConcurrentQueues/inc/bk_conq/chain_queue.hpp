@@ -29,38 +29,45 @@ namespace bk_conq {
 		static const size_t BLOCK_SIZE = 1024;
 	public:
 		chain_queue() {
-			auto hnode = std::make_unique<list_node_t>();
-			auto flnode = std::make_unique<list_node_t>();
-			auto ipnode = std::make_unique<list_node_t>();
+            auto hnode = new list_node_t;
+			auto flnode = new list_node_t;
+			auto ipnode = new list_node_t;
 
-			_head.store(hnode.get());
+			_head.store(hnode);
 			_tail.store(_head.load(std::memory_order_relaxed), std::memory_order_relaxed);
-			_free_list_head.store(flnode.get());
+			_free_list_head.store(flnode);
 			_free_list_tail.store(_free_list_head.load(std::memory_order_relaxed), std::memory_order_relaxed);
-			_in_progress_head.store(ipnode.get());
+			_in_progress_head.store(ipnode);
 			_in_progress_tail.store(_in_progress_head.load(std::memory_order_relaxed), std::memory_order_relaxed);
-
-			storage_node_t *store = new storage_node_t(std::move(hnode));
-			storage_node_t* prev_head = _storage_head.exchange(store, std::memory_order_acq_rel);
-			prev_head->next.store(store, std::memory_order_release);
-
-			store = new storage_node_t(std::move(flnode));
-			prev_head = _storage_head.exchange(store, std::memory_order_acq_rel);
-			prev_head->next.store(store, std::memory_order_release);
-
-			store = new storage_node_t(std::move(ipnode));
-			prev_head = _storage_head.exchange(store, std::memory_order_acq_rel);
-			prev_head->next.store(store, std::memory_order_release);
 		}
 
 		virtual ~chain_queue() {
-			storage_node_t* tail = _storage_tail.load(std::memory_order_relaxed);
-			storage_node_t* next = tail->next.load(std::memory_order_relaxed);
-			for (storage_node_t* next = tail->next.load(std::memory_order_relaxed); next != nullptr; ) {
-				tail = next;
-				next = next->next.load(std::memory_order_relaxed);
-				delete tail;
-			}
+            list_node_t* next;
+            list_node_t* tail = _tail.load(std::memory_order_relaxed);
+            
+            for (next = tail->next.load(std::memory_order_relaxed); next != nullptr; ) {
+                tail = next;
+                next = next->next.load(std::memory_order_relaxed);
+                delete tail;
+            }
+            delete _tail.load();
+
+            tail = _free_list_tail.load(std::memory_order_relaxed);
+            for (next = tail->next.load(std::memory_order_relaxed); next != nullptr; ) {
+                tail = next;
+                next = next->next.load(std::memory_order_relaxed);
+                delete tail;
+            }
+            delete _free_list_tail.load();
+
+            tail = _in_progress_tail.load(std::memory_order_relaxed);
+            for (next = tail->next.load(std::memory_order_relaxed); next != nullptr; ) {
+                tail = next;
+                next = next->next.load(std::memory_order_relaxed);
+                delete tail;
+            }
+            delete _in_progress_tail.load();
+
 		}
 
 		chain_queue(const chain_queue&) = delete;
@@ -117,13 +124,6 @@ namespace bk_conq {
 				data[indx] = std::forward<R>(item);
 				return (++indx == BLOCK_SIZE);
 			}
-		};
-
-		struct storage_node_t {
-			std::unique_ptr<list_node_t> node;
-			std::atomic<storage_node_t*> next{ nullptr };
-			storage_node_t(std::unique_ptr<list_node_t> n) : node(std::move(n)) {};
-			storage_node_t() {}
 		};
 
 		void list_enqueue(list_node_t* item, std::atomic<list_node_t*>& head) {
@@ -242,14 +242,7 @@ namespace bk_conq {
 
 
 		list_node_t* allocate() {
-			auto up = std::make_unique<list_node_t>();
-			auto ret = up.get();
-			//store the node on the storage queue for retrieval later
-			storage_node_t *store = new storage_node_t(std::move(up));
-			storage_node_t* prev_head = _storage_head.exchange(store, std::memory_order_acq_rel);
-			prev_head->next.store(store, std::memory_order_release);
-
-			return ret;
+			return new list_node_t;
 		}
 
 		template<typename R>
@@ -265,17 +258,14 @@ namespace bk_conq {
 			return nullptr;
 		}
 
-		std::atomic<list_node_t*>	_last_progress;
-		std::atomic<list_node_t*>   _head;
+        std::atomic<list_node_t*>   _in_progress_head;
+        std::atomic<list_node_t*>   _head;
 		std::atomic<list_node_t*>   _free_list_tail;
-		std::array<char, 64>	    _padding0;
+		std::array<char, 64>	    _padding1;
 		std::atomic<list_node_t*>   _tail;
 		std::atomic<list_node_t*>   _free_list_head;
-		std::array<char, 64>	    _padding2;
-		std::atomic<list_node_t*>   _in_progress_head;
-		std::atomic<storage_node_t*> _storage_head{ new storage_node_t };
+        std::array<char, 64>	    _padding2;
 		std::atomic<list_node_t*>   _in_progress_tail;
-		std::atomic<storage_node_t*> _storage_tail{ _storage_head.load(std::memory_order_relaxed) };
 	};
 }//namespace bk_conq
 
