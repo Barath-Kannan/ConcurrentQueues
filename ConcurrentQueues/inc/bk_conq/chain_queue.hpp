@@ -192,8 +192,7 @@ namespace bk_conq {
 		}
 
 		bool try_get_from_inprogress_tail(T& output) {
-			list_node_t* item = _in_progress_tail.load(std::memory_order_relaxed);
-			if (!item) return false;
+            list_node_t* item;
 			for (item = _in_progress_tail.exchange(nullptr, std::memory_order_acq_rel); !item; item = _in_progress_tail.exchange(nullptr, std::memory_order_acq_rel)) {
 				std::this_thread::yield();
 			}
@@ -217,8 +216,7 @@ namespace bk_conq {
 		}
 
 		bool try_get_from_inprogress(T& output) {
-			list_node_t* item = _in_progress_tail.load(std::memory_order_relaxed);
-			if (!item) return false;
+            list_node_t* item;
 			item = inprogress_try_dequeue();
 			if (item == nullptr) {
 				return try_get_from_inprogress_tail(output);
