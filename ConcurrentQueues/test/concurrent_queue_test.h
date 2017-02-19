@@ -28,9 +28,9 @@ enum QueueTestType : uint32_t{
 };
 
 struct TestParameters {
-    uint32_t nReaders;
-    uint32_t nWriters;
-    uint32_t nElements;
+    size_t nReaders;
+    size_t nWriters;
+    size_t nElements;
 	size_t queueSize;
 	size_t subqueueSize;
 	QueueTestType testType;
@@ -50,7 +50,7 @@ struct BigThing {
 
 
 class QueueTest : public testing::Test,
-public testing::WithParamInterface< ::testing::tuple<uint32_t, uint32_t, uint32_t, size_t, size_t, QueueTestType> > {
+public testing::WithParamInterface< ::testing::tuple<size_t, size_t, size_t, size_t, size_t, QueueTestType> > {
 public:
 	typedef size_t queue_test_type_t;
 
@@ -75,7 +75,7 @@ protected:
             for (size_t i = 0; i < _params.nReaders; ++i) {
                 l.emplace_back([&, i]() {
                     ++_sync;
-                    while (!_startFlag.load(std::memory_order_acquire)) { std::this_thread::sleep_for(std::chrono::nanoseconds(10)); };
+                    while (!_startFlag.load(std::memory_order_acquire)) { std::this_thread::yield(); };
                     readers[i].start();
                     queue_test_type_t res;
                     for (size_t j = 0; j < _params.nElements / _params.nReaders; ++j) {
@@ -96,7 +96,7 @@ protected:
             for (size_t i = 0; i < _params.nWriters; ++i) {
                 l.emplace_back([&, i]() {
                     ++_sync;
-                    while (!_startFlag.load(std::memory_order_acquire)) { std::this_thread::sleep_for(std::chrono::nanoseconds(10)); };
+                    while (!_startFlag.load(std::memory_order_acquire)) { std::this_thread::yield(); };
                     writers[i].start();
                     for (size_t j = 0; j < _params.nElements / _params.nWriters; ++j) {
                         enqueueOperation(q, j);
@@ -217,14 +217,23 @@ protected:
 		GenericTest(dequeueFunction, enqueueFunction, prefill, args...);
 	}
 
-	template<typename T, typename R, typename ...Args>
-	typename std::enable_if_t<std::is_base_of<bk_conq::bounded_queue_typed_tag<R>, T>::value>
-	TemplatedTest(Args&&... args) {
-		auto dequeueFunction = generateDequeueFunctionNonblocking<T, R>();
-		auto enqueueFunction = generateEnqueueFunctionNonblocking<T, R>();
-		GenericTest(dequeueFunction, enqueueFunction, false, _params.queueSize, args...);
-	}
-	
+    template<typename T, typename R, typename ...Args>
+    typename std::enable_if_t<std::is_base_of<bk_conq::bounded_queue_typed_tag<R>, T>::value>
+        TemplatedTest(Args&&... args) {
+        auto dequeueFunction = generateDequeueFunctionNonblocking<T, R>();
+        auto enqueueFunction = generateEnqueueFunctionNonblocking<T, R>();
+        GenericTest(dequeueFunction, enqueueFunction, false, _params.queueSize, args...);
+    }
+
+    template<typename T, typename R, typename ...Args>
+    typename std::enable_if_t<std::is_base_of<bk_conq::bounded_queue_typed_tag<R>, T>::value>
+        TemplatedBoundedTest(Args&&... args) {
+        auto dequeueFunction = generateDequeueFunctionNonblocking<T, R>();
+        auto enqueueFunction = generateEnqueueFunctionNonblocking<T, R>();
+        GenericTest(dequeueFunction, enqueueFunction, false, args...);
+    }
+
+
 	template <typename T, typename R, typename... Args>
 	typename std::enable_if_t<std::is_base_of<bk_conq::unbounded_queue_typed_tag<R>, T>::value>
 	BlockingTest(bool prefill, Args&&... args) {

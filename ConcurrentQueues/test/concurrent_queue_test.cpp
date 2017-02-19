@@ -226,8 +226,8 @@ INSTANTIATE_TEST_CASE_P(
     testing::Combine(
     Values(1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024), //readers
     Values(1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024), //writers
-    Values(1e6, 1e7, 1e8, 1e9), //elements
-	Values(8192, 32768, 131072, 524288, 2097152, 4194304, 8388608, 16777216), //queue size (bounded only)
+    Values(size_t(1e6), size_t(1e7), size_t(1e8), size_t(1e9), size_t(1e10)), //elements
+	Values(8192, 32768, 131072, 524288, 2097152, 4194304, 8388608, 16777216, 33554432), //queue size (bounded only)
 	Values(2, 4, 8, 16, 32, 64), //subqueue size (multiqueue only)
 	Values(QueueTestType::BUSY_TEST, QueueTestType::YIELD_TEST, QueueTestType::SLEEP_TEST, QueueTestType::BACKOFF_TEST)) //test type
 );
