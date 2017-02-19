@@ -20,24 +20,27 @@ class tlos {
 public:
     tlos(std::function<T()> defaultvalfunc = nullptr, std::function<void(T&&)> returnfunc = nullptr) :
         _defaultvalfunc(defaultvalfunc),
-        _returnfunc(returnfunc)
-    {
-        std::lock_guard<std::mutex> lock(_m);
-        //assign a unique id
-        _myid = _id++;
+        _returnfunc(returnfunc),
+        _myid(_id++),
+        _myindx(get_index(_myid))
+    {}
 
+    static size_t get_index(size_t myid) {
+        std::lock_guard<std::mutex> lock(_m);
+        size_t myindx;
         //check if a previous owner returned their index
         if (!_available.empty()) {
             //use that index if available
-            _myindx = _available.back();
-            _owners[_myindx] = _myid;
+            myindx = _available.back();
+            _owners[myindx] = myid;
             _available.pop_back();
         }
         else {
             //otherwise generate a new one
-            _myindx = _owners.size();
-            _owners.push_back(_myid);
+            myindx = _owners.size();
+            _owners.push_back(myid);
         }
+        return myindx;
     }
 
     virtual ~tlos() {
@@ -167,13 +170,13 @@ private:
     std::function<void(T&&)> _returnfunc{ nullptr };
 
     //identifies the index of this objects U item in the thread
-    size_t _myindx;
+    const size_t _myindx;
 
     //uniquely identifies this object (prefer using this to pointer as another object of the same type can be given the same address)
-    size_t _myid;
+    const size_t _myid;
 
     //counter for assigning the objects unique id, starting at 1
-    static size_t _id;
+    static std::atomic<size_t> _id;
 
     //vector of released box indexes
     static std::vector<size_t> _available;
@@ -188,7 +191,7 @@ private:
 };
 
 template <typename T, typename OWNER>
-size_t tlos<T, OWNER>::_id = 1;
+std::atomic<size_t> tlos<T, OWNER>::_id = 1;
 
 template <typename T, typename OWNER>
 std::vector<size_t> tlos<T, OWNER>::_available;
