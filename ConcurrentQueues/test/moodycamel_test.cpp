@@ -79,12 +79,20 @@ namespace MoodyQueue{
 	using qtype = MoodyQueueAdapter<QueueTest::queue_test_type_t>;
 	using tqtype = MoodyQueueTokenizedAdapter<QueueTest::queue_test_type_t>;
 
-	TEST_P(QueueTest, moody_queue) {
-		QueueTest::TemplatedTest<qtype, queue_test_type_t>();
-	}
+    TEST_P(QueueTest, moody_queue) {
+        QueueTest::TemplatedTest<qtype, queue_test_type_t>(false);
+    }
 
-	TEST_P(QueueTest, moody_queue_tokenized) {
-		QueueTest::TemplatedTest<tqtype, queue_test_type_t>();
-	}
+    TEST_P(QueueTest, moody_queue_prefill) {
+        QueueTest::TemplatedTest<qtype, queue_test_type_t>(true);
+    }
+
+    TEST_P(QueueTest, moody_queue_tokenized) {
+        QueueTest::TemplatedTest<tqtype, queue_test_type_t>(false);
+    }
+
+    TEST_P(QueueTest, moody_queue_tokenized_prefill) {
+        QueueTest::TemplatedTest<tqtype, queue_test_type_t>(true);
+    }
 
 }

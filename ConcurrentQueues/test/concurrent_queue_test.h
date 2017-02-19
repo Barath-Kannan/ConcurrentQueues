@@ -65,56 +65,59 @@ protected:
 	std::atomic<size_t> _sync{ 0 };
 
     template<typename T, typename R, typename ...Args>
-    void GenericTest(std::function<void(T&, R&) > dequeueOperation, std::function<void(T&, R) > enqueueOperation, Args... args) {
-		T q{ args... };
+    void GenericTest(std::function<void(T&, R&) > dequeueOperation, std::function<void(T&, R) > enqueueOperation, bool prefill, Args... args) {
+        T q{ args... };
         std::vector<std::thread> l;
-        for (size_t i = 0; i < _params.nReaders; ++i) {
-            l.emplace_back([&, i]() {
-				++_sync;
-				while (!_startFlag.load(std::memory_order_acquire)) { std::this_thread::yield(); };
-				readers[i].start();
-				queue_test_type_t res;
-                for (size_t j = 0; j < _params.nElements / _params.nReaders; ++j) {
-                    dequeueOperation(q, res);
-					//if (j % 100000 == 0) std::cout << "d" << j << std::endl;
-					//if (_params.nElements/_params.nReaders -j < 100000) std::cout << "z" << j << std::endl;
-					//if (_params.nElements / _params.nReaders - j < 100000) break;
-                }
-                if (i == 0) {
-                    size_t remainder = _params.nElements - ((_params.nElements / _params.nReaders) * _params.nReaders);
-                    for (size_t j = 0; j < remainder; ++j) {
+        for (int i = 0; i < (prefill ? 2 : 1); ++i) {
+            _startFlag.store(false);
+            _sync.store(0);
+            l.clear();
+            for (size_t i = 0; i < _params.nReaders; ++i) {
+                l.emplace_back([&, i]() {
+                    ++_sync;
+                    while (!_startFlag.load(std::memory_order_acquire)) { std::this_thread::sleep_for(std::chrono::nanoseconds(10)); };
+                    readers[i].start();
+                    queue_test_type_t res;
+                    for (size_t j = 0; j < _params.nElements / _params.nReaders; ++j) {
                         dequeueOperation(q, res);
+                        //if (j % 100000 == 0) std::cout << "d" << j << std::endl;
+                        //if (_params.nElements/_params.nReaders -j < 100000) std::cout << "z" << j << std::endl;
+                        //if (_params.nElements / _params.nReaders - j < 100000) break;
                     }
-                }
-                readers[i].stop();
-            });
-        }
-        for (size_t i = 0; i < _params.nWriters; ++i) {
-            l.emplace_back([&, i]() {
-				++_sync;
-				while (!_startFlag.load(std::memory_order_acquire)) { std::this_thread::yield(); };
-                writers[i].start();
-                for (size_t j = 0; j < _params.nElements / _params.nWriters; ++j) {
-                    enqueueOperation(q, j);
-					//if (j % 100000 == 0) std::cout << "e" << j << std::endl;
-                }
-                if (i == 0) {
-                    size_t remainder = _params.nElements - ((_params.nElements / _params.nWriters) * _params.nWriters);
-                    for (size_t j = 0; j < remainder; ++j) {
+                    if (i == 0) {
+                        size_t remainder = _params.nElements - ((_params.nElements / _params.nReaders) * _params.nReaders);
+                        for (size_t j = 0; j < remainder; ++j) {
+                            dequeueOperation(q, res);
+                        }
+                    }
+                    readers[i].stop();
+                });
+            }
+            for (size_t i = 0; i < _params.nWriters; ++i) {
+                l.emplace_back([&, i]() {
+                    ++_sync;
+                    while (!_startFlag.load(std::memory_order_acquire)) { std::this_thread::sleep_for(std::chrono::nanoseconds(10)); };
+                    writers[i].start();
+                    for (size_t j = 0; j < _params.nElements / _params.nWriters; ++j) {
                         enqueueOperation(q, j);
+                        //if (j % 100000 == 0) std::cout << "e" << j << std::endl;
                     }
-                }
-                writers[i].stop();
-            });
-        }
-		while (_sync.load() != _params.nWriters + _params.nReaders) { std::this_thread::yield(); };
-		_startFlag.store(true, std::memory_order_release);
-        for (size_t i = 0; i < _params.nReaders + _params.nWriters; ++i) {
-            l[i].join();
+                    if (i == 0) {
+                        size_t remainder = _params.nElements - ((_params.nElements / _params.nWriters) * _params.nWriters);
+                        for (size_t j = 0; j < remainder; ++j) {
+                            enqueueOperation(q, j);
+                        }
+                    }
+                    writers[i].stop();
+                });
+            }
+            while (_sync.load() != _params.nWriters + _params.nReaders) { std::this_thread::yield(); };
+            _startFlag.store(true, std::memory_order_release);
+            for (size_t i = 0; i < _params.nReaders + _params.nWriters; ++i) {
+                l[i].join();
+            }
         }
 
-		l.clear();
-		
     }
 
 	auto generateBusyDequeue() {
@@ -208,10 +211,10 @@ protected:
 
 	template<typename T, typename R, typename... Args>
 	typename std::enable_if_t<std::is_base_of<bk_conq::unbounded_queue_typed_tag<R>, T>::value>
-	TemplatedTest(Args&&... args) {
+	TemplatedTest(bool prefill, Args&&... args) {
 		auto dequeueFunction = generateDequeueFunctionNonblocking<T, R>();
 		auto enqueueFunction = generateEnqueueFunctionBlocking<T, R>();
-		GenericTest(dequeueFunction, enqueueFunction, args...);
+		GenericTest(dequeueFunction, enqueueFunction, prefill, args...);
 	}
 
 	template<typename T, typename R, typename ...Args>
@@ -219,15 +222,15 @@ protected:
 	TemplatedTest(Args&&... args) {
 		auto dequeueFunction = generateDequeueFunctionNonblocking<T, R>();
 		auto enqueueFunction = generateEnqueueFunctionNonblocking<T, R>();
-		GenericTest(dequeueFunction, enqueueFunction, _params.queueSize, args...);
+		GenericTest(dequeueFunction, enqueueFunction, false, _params.queueSize, args...);
 	}
 	
 	template <typename T, typename R, typename... Args>
 	typename std::enable_if_t<std::is_base_of<bk_conq::unbounded_queue_typed_tag<R>, T>::value>
-	BlockingTest(Args&&... args) {
+	BlockingTest(bool prefill, Args&&... args) {
 		auto dequeueFunction = generateDequeueFunctionBlocking<T, R>();
 		auto enqueueFunction = generateEnqueueFunctionBlocking<T, R>();
-		GenericTest(dequeueFunction, enqueueFunction, args...);
+		GenericTest(dequeueFunction, enqueueFunction, prefill, args...);
 	}
 	
 	template <typename T, typename R, typename... Args>
@@ -235,7 +238,7 @@ protected:
 	BlockingTest(Args&&... args) {
 		auto dequeueFunction = generateDequeueFunctionBlocking<T, R>();
 		auto enqueueFunction = generateEnqueueFunctionBlocking<T, R>();
-		GenericTest(dequeueFunction, enqueueFunction, _params.queueSize, args...);
+		GenericTest(dequeueFunction, enqueueFunction, false, _params.queueSize, args...);
 	}
 
 };
