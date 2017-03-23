@@ -47,7 +47,7 @@ public:
 	void sc_dequeue(R& output) {
 		if (T::sc_dequeue(output)) return;
 		std::unique_lock<std::mutex> lock(_m);
-		while (!Q<T>::sc_dequeue(output)) {
+		while (!T::sc_dequeue(output)) {
 			_cv.wait(lock);
 		}
 	}
@@ -73,4 +73,3 @@ private:
 }//namespace bk_conq
 
 #endif /* BK_CONQ_BLOCKINGUNBOUNDEDQUEUE_HPP */
-

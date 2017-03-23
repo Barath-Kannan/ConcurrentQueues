@@ -11,6 +11,7 @@
 #include <mutex>
 #include <vector>
 #include <set>
+#include <atomic>
 #include <thread>
 
 namespace bk_conq{
@@ -191,7 +192,7 @@ private:
 };
 
 template <typename T, typename OWNER>
-std::atomic<size_t> tlos<T, OWNER>::_id = 1;
+std::atomic<size_t> tlos<T, OWNER>::_id(1);
 
 template <typename T, typename OWNER>
 std::vector<size_t> tlos<T, OWNER>::_available;
@@ -209,4 +210,3 @@ std::mutex tlos<T, OWNER>::_m;
 }//namespace bk_conq
 
 #endif // BK_CONQ_TLOS_HPP
-
