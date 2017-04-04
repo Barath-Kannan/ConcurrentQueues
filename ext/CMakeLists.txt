@@ -1,7 +1,10 @@
 if(NOT TARGET gtest)
 	add_subdirectory( googletest )
 endif()
+set_target_properties(gtest PROPERTIES FOLDER ext)
+set_target_properties(gtest_main PROPERTIES FOLDER ext)
 
 if(BENCHMARK_EXTERNAL)
 	add_subdirectory( moodycamel )
+    set_target_properties(moodycamel PROPERTIES FOLDER ext)
 endif()

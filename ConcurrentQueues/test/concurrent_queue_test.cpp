@@ -92,142 +92,14 @@ void QueueTest::TearDown(){
 	cout << "Dequeue ops/second/thread (worst case): " << static_cast<double>(_params.nElements) / readMax.count() / _params.nReaders << std::endl;
 }
 
-namespace ListQueue {
-	using qtype = bk_conq::list_queue<QueueTest::queue_test_type_t>;
-	using mqtype = bk_conq::multi_unbounded_queue<qtype>;
-	using bqtype = bk_conq::blocking_unbounded_queue<qtype>;
-	using bmqtype = bk_conq::blocking_unbounded_queue<mqtype>;
-
-    TEST_P(QueueTest, list_queue) {
-        QueueTest::TemplatedTest<qtype, queue_test_type_t>(false);
-    }
-
-    TEST_P(QueueTest, list_queue_blocking) {
-        QueueTest::BlockingTest<bqtype, queue_test_type_t>(false);
-    }
-
-    TEST_P(QueueTest, multi_list_queue) {
-        QueueTest::TemplatedTest<mqtype, queue_test_type_t>(false, _params.subqueueSize);
-    }
-
-    TEST_P(QueueTest, multi_list_queue_blocking) {
-        QueueTest::BlockingTest<bmqtype, queue_test_type_t>(false, _params.subqueueSize);
-    }
-
-    TEST_P(QueueTest, list_queue_prefill) {
-        QueueTest::TemplatedTest<qtype, queue_test_type_t>(true);
-    }
-
-    TEST_P(QueueTest, list_queue_blocking_prefill) {
-        QueueTest::BlockingTest<bqtype, queue_test_type_t>(true);
-    }
-
-    TEST_P(QueueTest, multi_list_queue_prefill) {
-        QueueTest::TemplatedTest<mqtype, queue_test_type_t>(true, _params.subqueueSize);
-    }
-
-    TEST_P(QueueTest, multi_list_queue_blocking_prefill) {
-        QueueTest::BlockingTest<bmqtype, queue_test_type_t>(true, _params.subqueueSize);
-    }
-
-}
-
-namespace ChainQueue {
-	using qtype = bk_conq::chain_queue<QueueTest::queue_test_type_t>;
-	using mqtype = bk_conq::multi_unbounded_queue<qtype>;
-	using bqtype = bk_conq::blocking_unbounded_queue<qtype>;
-	using bmqtype = bk_conq::blocking_unbounded_queue<mqtype>;
-
-    TEST_P(QueueTest, chain_queue) {
-        QueueTest::TemplatedTest<qtype, queue_test_type_t>(false);
-    }
-
-    TEST_P(QueueTest, chain_queue_blocking) {
-        QueueTest::BlockingTest<bqtype, queue_test_type_t>(false);
-    }
-
-    TEST_P(QueueTest, multi_chain_queue) {
-        QueueTest::TemplatedTest<mqtype, queue_test_type_t>(false, _params.subqueueSize);
-    }
-
-    TEST_P(QueueTest, multi_chain_queue_blocking) {
-        QueueTest::BlockingTest<bmqtype, queue_test_type_t>(false, _params.subqueueSize);
-    }
-
-    TEST_P(QueueTest, chain_queue_prefill) {
-        QueueTest::TemplatedTest<qtype, queue_test_type_t>(true);
-    }
-
-    TEST_P(QueueTest, chain_queue_blocking_prefill) {
-        QueueTest::BlockingTest<bqtype, queue_test_type_t>(true);
-    }
-
-    TEST_P(QueueTest, multi_chain_queue_prefill) {
-        QueueTest::TemplatedTest<mqtype, queue_test_type_t>(true, _params.subqueueSize);
-    }
-
-    TEST_P(QueueTest, multi_chain_queue_blocking_prefill) {
-        QueueTest::BlockingTest<bmqtype, queue_test_type_t>(true, _params.subqueueSize);
-    }
-
-}
-
-namespace BoundedListQueue {
-	using qtype = bk_conq::bounded_list_queue<QueueTest::queue_test_type_t>;
-	using mqtype = bk_conq::multi_bounded_queue<qtype>;
-	using bqtype = bk_conq::blocking_bounded_queue<qtype>;
-	using bmqtype = bk_conq::blocking_bounded_queue<mqtype>;
-
-	TEST_P(QueueTest, bounded_list_queue) {
-		QueueTest::TemplatedTest<qtype, queue_test_type_t>();
-	}
-
-	TEST_P(QueueTest, bounded_list_queue_blocking) {
-		QueueTest::BlockingTest<bqtype, queue_test_type_t>();
-	}
-
-	TEST_P(QueueTest, multi_bounded_list_queue) {
-		QueueTest::TemplatedTest<mqtype, queue_test_type_t>(_params.subqueueSize);
-	}
-
-	TEST_P(QueueTest, multi_bounded_list_queue_blocking) {
-		QueueTest::BlockingTest<bmqtype, queue_test_type_t>(_params.subqueueSize);
-	}
-
-}
-
-namespace VectorQueue {
-	using qtype = bk_conq::vector_queue<QueueTest::queue_test_type_t>;
-	using mqtype = bk_conq::multi_bounded_queue<qtype>;
-	using bqtype = bk_conq::blocking_bounded_queue<qtype>;
-	using bmqtype = bk_conq::blocking_bounded_queue<mqtype>;
-
-	TEST_P(QueueTest, vector_queue) {
-		QueueTest::TemplatedTest<qtype, queue_test_type_t>();
-	}
-
-	TEST_P(QueueTest, vector_queue_blocking) {
-		QueueTest::BlockingTest<bqtype, queue_test_type_t>();
-	}
-
-	TEST_P(QueueTest, multi_vector_queue) {
-		QueueTest::TemplatedTest<mqtype, queue_test_type_t>(_params.subqueueSize);
-	}
-
-	TEST_P(QueueTest, multi_vector_queue_blocking) {
-		QueueTest::BlockingTest<bmqtype, queue_test_type_t>(_params.subqueueSize);
-	}
-
-}
-
 INSTANTIATE_TEST_CASE_P(
     queue_benchmark,
     QueueTest,
     testing::Combine(
-    Values(1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024), //readers
-    Values(1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024), //writers
-    Values(size_t(1e6), size_t(1e7), size_t(1e8), size_t(1e9), size_t(1e10)), //elements
-	Values(8192, 32768, 131072, 524288, 2097152, 4194304, 8388608, 16777216, 33554432), //queue size (bounded only)
-	Values(2, 4, 8, 16, 32, 64), //subqueue size (multiqueue only)
-	Values(QueueTestType::BUSY_TEST, QueueTestType::YIELD_TEST, QueueTestType::SLEEP_TEST, QueueTestType::BACKOFF_TEST)) //test type
+        Values(1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024), //readers
+        Values(1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024), //writers
+        Values(size_t(1e6), size_t(1e7), size_t(1e8), size_t(1e9), size_t(1e10)), //elements
+        Values(8192, 32768, 131072, 524288, 2097152, 4194304, 8388608, 16777216, 33554432), //queue size (bounded only)
+        Values(2, 4, 8, 16, 32, 64), //subqueue size (multiqueue only)
+        Values(QueueTestType::BUSY_TEST, QueueTestType::YIELD_TEST, QueueTestType::SLEEP_TEST, QueueTestType::BACKOFF_TEST)) //test type
 );
