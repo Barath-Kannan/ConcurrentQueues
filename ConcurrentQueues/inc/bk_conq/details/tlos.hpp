@@ -164,10 +164,10 @@ private:
     }
 
     //defines a function to assign the initial value to the retrieved value, when it is first retrieved in a unique thread in a unique object
-    std::function<T()> _defaultvalfunc{ nullptr };
+    const std::function<T()> _defaultvalfunc{ nullptr };
 
     //defines a function to notify the owning object that a thread owning a thread-local instance has gone out of scope
-    std::function<void(T&&)> _returnfunc{ nullptr };
+    const std::function<void(T&&)> _returnfunc{ nullptr };
 
     //identifies the index of this objects U item in the thread
     const size_t _myindx;
