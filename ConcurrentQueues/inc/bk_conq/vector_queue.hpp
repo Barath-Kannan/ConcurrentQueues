@@ -104,7 +104,7 @@ protected:
 	}
 
 	bool mc_dequeue_uncontended_impl(T& data) {
-		return sc_dequeue(data);
+		return this->sc_dequeue(data);
 	}
 
 private:
