@@ -14,8 +14,8 @@
 #include <atomic>
 #include <thread>
 
-namespace bk_conq{
-namespace details{
+namespace bk_conq {
+namespace details {
 template <typename T, typename OWNER = void>
 class tlos {
 public:

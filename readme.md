@@ -2,7 +2,7 @@
 
 This library aims to provide a variety of different multi-producer multi-consumer queue implementations for usage in concurrent contexts. The queues provided are highly configurable for adapting to different usage contexts (single producer, single consumer, high write contention, high read contention). The aim is not to achieve complete lock freedom but to achieve the highest speed. When the correct queue is used and is configured to match the context of their usage, the queue can achieve linear speedup in the number of threads (up to the number of cores) both in enqueue in and dequeue operations by converging on a state of near zero contention.
 
-##Table of Contents
+## Table of Contents
 - [ConcurrentQueues](#concurrentqueues)
     - [Table of Contents](#table-of-contents)
     - [Queue Types](#queue-types)
@@ -10,7 +10,7 @@ This library aims to provide a variety of different multi-producer multi-consume
     - [Usage](#usage)
     - [Performance](#performance)
 	
-##Queue types
+## Queue types
 
 There are 3 base queue types provided:
 - Vector based bounded queue (bk_conq::vector_queue<T>)
@@ -25,62 +25,62 @@ The blocking adapters provide blocking enqueue/dequeue operations and try operat
 - Blocking bounded queue (bk_conq::blocking_bounded_queue<Q<T>>)
 - Blocking unbounded queue (bk_conq::blocking_unbounded_queue<Q<T>>)
 
-##Building
+## Building
 
 The queues are all header only, so no installation is required. The test cases can be built using cmake. 
 ```
     cmake -Bbuild -H.
-	cmake --build build --config release
+    cmake --build build --config release
 ```
 Cmake will pull in gtest from git in order to build the tests. To enable the external benchmark tests to be pulled in, perform the generation with the BENCHMARK_EXTERNAL flag set.
 
 ```
     cmake -Bbuild -H. -DBENCHMARK_EXTERNAL=ON
-	cmake --build build --config release
+    cmake --build build --config release
 ```
 This will pull in the moodycamel MPMC queue for comparison.
 
-##Usage
+## Usage
 
 The base queues are all templated on type type to be queued. Below is an example using the list queue.
-```
+```c++
     int x = 0;
-	//unbounded list based queue
-	//allocates as required
-	bk_conq::list_queue<int> lq;
-	
-	//enqueue x
-	vq.mp_enqueue(x);
-	
-	//dequeue into x, return true if item dequeued
-	bool ret = vq.mc_dequeue(x);
+    //unbounded list based queue
+    //allocates as required
+    bk_conq::list_queue<int> lq;
+
+    //enqueue x
+    vq.mp_enqueue(x);
+
+    //dequeue into x, return true if item dequeued
+    bool ret = vq.mc_dequeue(x);
 ```
 
 The bounded queue types return bool on enqueue operations.
-```
-	int x = 0;
-	size_t queue_size = 256;
-	//bounded linked list based queue
-	//allocates the required space upfront
-	bk_conq::bounded_list_queue<int> lq(queue_size);
-	
-	//the vector queue uses the Vyukov MPMC queue design.
-	//the subqueue size must therefore be a power of 2
-	bk_conq::vector_queue<int> vq(queue_size);
-	
-	//enqueues will return false when the queue is full
-	bool ret = lq.mp_enqueue(x);
-	ret = vq.mp_enqueue(x);
-	ret = lq.mc_dequeue(x);
-	ret = vq.mc_dequeue(x);
+```c++
+    int x = 0;
+    size_t queue_size = 256;
+    //bounded linked list based queue
+    //allocates the required space upfront
+    bk_conq::bounded_list_queue<int> lq(queue_size);
+
+    //the vector queue uses the Vyukov MPMC queue design.
+    //the subqueue size must therefore be a power of 2
+    bk_conq::vector_queue<int> vq(queue_size);
+
+    //enqueues will return false when the queue is full
+    bool ret = lq.mp_enqueue(x);
+    ret = vq.mp_enqueue(x);
+    ret = lq.mc_dequeue(x);
+    ret = vq.mc_dequeue(x);
 ```
 The multi queue types have the same interface as the base queue types but their constructors require the user to specify the number of subqueues that will be used. It's generally recommended that the number of subqueues is equal to the expected number of writers.
-```
-	size_t queue_size = 256;
-	size_t nsubqueues = 16;
-	bk_conq::multi_unbounded_queue<list_queue<int>> mlq(nsubqueues);
-	bk_conq::multi_bounded_queue<unbounded_list_queue<int>> mlq(queue_size, nsubqueues);
-	bk_conq::multi_bounded_queue<vector_queue<int>> mlq(queue_size, nsubqueues);
+```c++
+    size_t queue_size = 256;
+    size_t nsubqueues = 16;
+    bk_conq::multi_unbounded_queue<list_queue<int>> mlq(nsubqueues);
+    bk_conq::multi_bounded_queue<unbounded_list_queue<int>> mlq(queue_size, nsubqueues);
+    bk_conq::multi_bounded_queue<vector_queue<int>> mlq(queue_size, nsubqueues);
 ```
 
 ## Performance

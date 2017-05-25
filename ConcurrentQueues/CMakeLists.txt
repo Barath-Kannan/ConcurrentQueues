@@ -17,22 +17,22 @@ endif()
 # Files
 ################################################
 set(MAIN_HEADERS
-	inc/bk_conq/bounded_queue.hpp
-	inc/bk_conq/unbounded_queue.hpp
-	inc/bk_conq/blocking_bounded_queue.hpp
-	inc/bk_conq/blocking_unbounded_queue.hpp
-	inc/bk_conq/multi_bounded_queue.hpp
-	inc/bk_conq/multi_unbounded_queue.hpp
-	inc/bk_conq/list_queue.hpp
-	inc/bk_conq/vector_queue.hpp
-	inc/bk_conq/bounded_list_queue.hpp
-	inc/bk_conq/chain_queue.hpp
+    inc/bk_conq/bounded_queue.hpp
+    inc/bk_conq/unbounded_queue.hpp
+    inc/bk_conq/blocking_bounded_queue.hpp
+    inc/bk_conq/blocking_unbounded_queue.hpp
+    inc/bk_conq/multi_bounded_queue.hpp
+    inc/bk_conq/multi_unbounded_queue.hpp
+    inc/bk_conq/list_queue.hpp
+    inc/bk_conq/vector_queue.hpp
+    inc/bk_conq/bounded_list_queue.hpp
+    inc/bk_conq/chain_queue.hpp
     inc/bk_conq/details/tlos.hpp
 )
 
 set(TEST_GENERAL_HEADERS
-	test/basic_timer.h
-	test/concurrent_queue_test.h
+    test/basic_timer.h
+    test/concurrent_queue_test.h
 )
 
 set(TEST_GENERAL_SOURCES
@@ -57,9 +57,9 @@ set(TEST_VECTORQUEUE_SOURCES
 )
 
 if(BENCHMARK_EXTERNAL)
-	set(TEST_EXTERNAL_SOURCES
-		test/moodycamel_test.cpp
-	)
+    set(TEST_EXTERNAL_SOURCES
+        test/moodycamel_test.cpp
+    )
 endif()
 
 source_group(main\\headers FILES ${MAIN_HEADERS})
@@ -132,5 +132,5 @@ if(CONCURRENTQUEUES_TESTS)
         )
         set_target_properties(MoodyQueueTest PROPERTIES FOLDER bk_conq)
     endif()
-
+    
 endif()

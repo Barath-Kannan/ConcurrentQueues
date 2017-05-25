@@ -1,4 +1,4 @@
-/* 
+/*
  * File:   basic_timer.h
  * Author: Barath Kannan
  *
@@ -11,24 +11,24 @@
 #include <chrono>
 #include <iostream>
 
-class basic_timer{
+class basic_timer {
 public:
     basic_timer();
     bool start();
     bool stop();
-    
+
     bool isRunning() const;
     double getElapsedSeconds() const;
     double getElapsedMilliseconds() const;
     double getElapsedMicroseconds() const;
     double getElapsedNanoseconds() const;
-    
+
     std::chrono::duration<double> getElapsedDuration() const;
-    friend std::ostream& operator<< (std::ostream& os, const basic_timer& bt) ;
-    
+    friend std::ostream& operator<< (std::ostream& os, const basic_timer& bt);
+
 protected:
-    std::chrono::time_point<std::chrono::high_resolution_clock> begin{std::chrono::high_resolution_clock::now()};
-    std::chrono::time_point<std::chrono::high_resolution_clock> end{begin};
+    std::chrono::time_point<std::chrono::high_resolution_clock> begin{ std::chrono::high_resolution_clock::now() };
+    std::chrono::time_point<std::chrono::high_resolution_clock> end{ begin };
     bool running;
 };
 
