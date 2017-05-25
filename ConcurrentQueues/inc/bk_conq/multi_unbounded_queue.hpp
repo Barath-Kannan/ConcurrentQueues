@@ -136,8 +136,8 @@ private:
 
     std::vector<padded_unbounded_queue> _q;
     std::vector<size_t> _unused_enqueue_indexes;
-    size_t				_enqueue_index{ 0 };
-    std::mutex			_m;
+    size_t _enqueue_index{ 0 };
+    std::mutex _m;
 
     details::tlos<std::vector<size_t>, multi_unbounded_queue<Q<T>>> _hitlist;
     details::tlos<padded_unbounded_queue*, multi_unbounded_queue<Q<T>>> _enqueue_identifier;

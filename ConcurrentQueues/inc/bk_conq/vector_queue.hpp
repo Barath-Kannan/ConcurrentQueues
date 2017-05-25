@@ -113,13 +113,13 @@ private:
         std::atomic<size_t>   seq;
     };
 
-    std::vector<node_t>     _buffer;
-    char                    _pad0[64];
-    std::atomic<size_t>     _head_seq{ 0 };
-    char                    _pad1[64];
-    std::atomic<size_t>     _tail_seq{ 0 };
-    char                    _pad2[64];
-    const size_t            _sm1;
+    std::vector<node_t> _buffer;
+    char _pad0[64];
+    std::atomic<size_t> _head_seq{ 0 };
+    char _pad1[64];
+    std::atomic<size_t> _tail_seq{ 0 };
+    char _pad2[64];
+    const size_t _sm1;
 };
 } //namespace bk_conq
 

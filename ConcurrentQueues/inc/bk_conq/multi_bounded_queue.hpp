@@ -133,8 +133,8 @@ private:
 
     std::vector<size_t> _unused_enqueue_indexes;
     std::vector<std::unique_ptr<padded_bounded_queue>> _q;
-    size_t				_enqueue_index{ 0 };
-    std::mutex			_m;
+    size_t _enqueue_index{ 0 };
+    std::mutex _m;
     details::tlos<std::vector<size_t>, multi_bounded_queue<Q<T>>> _hitlist;
     details::tlos<size_t, multi_bounded_queue<Q<T>>> _enqueue_identifier;
 };

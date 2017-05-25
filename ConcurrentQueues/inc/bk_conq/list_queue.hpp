@@ -180,11 +180,11 @@ private:
         return node;
     }
 
-    std::atomic<list_node_t*>   _head;
-    std::atomic<list_node_t*>   _free_list_tail;
-    char                        _padding[64];
-    std::atomic<list_node_t*>   _tail;
-    std::atomic<list_node_t*>   _free_list_head;
+    std::atomic<list_node_t*> _head;
+    std::atomic<list_node_t*> _free_list_tail;
+    char _padding[64];
+    std::atomic<list_node_t*> _tail;
+    std::atomic<list_node_t*> _free_list_head;
     std::atomic<storage_node_t*> _storage_head{ new storage_node_t };
     std::atomic<storage_node_t*> _storage_tail{ _storage_head.load(std::memory_order_relaxed) };
 

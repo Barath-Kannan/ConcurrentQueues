@@ -128,13 +128,13 @@ private:
         return nullptr;
     }
 
-    std::vector<list_node_t>	_data;
-    char                        _padding2[64];
-    std::atomic<list_node_t*>   _head{ &_data[0] };
-    std::atomic<list_node_t*>   _free_list_tail{ nullptr };
-    char                        _padding[64];
-    std::atomic<list_node_t*>   _tail{ _head.load(std::memory_order_relaxed) };
-    std::atomic<list_node_t*>   _free_list_head{ nullptr };
+    std::vector<list_node_t> _data;
+    char _padding2[64];
+    std::atomic<list_node_t*> _head{ &_data[0] };
+    std::atomic<list_node_t*> _free_list_tail{ nullptr };
+    char _padding[64];
+    std::atomic<list_node_t*> _tail{ _head.load(std::memory_order_relaxed) };
+    std::atomic<list_node_t*> _free_list_head{ nullptr };
 };
 }//namespace bk_conq
 

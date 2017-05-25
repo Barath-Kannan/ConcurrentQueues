@@ -256,14 +256,14 @@ private:
         return nullptr;
     }
 
-    std::atomic<list_node_t*>   _in_progress_head;
-    std::atomic<list_node_t*>   _head;
-    std::atomic<list_node_t*>   _free_list_tail;
-    std::array<char, 64>	    _padding1;
-    std::atomic<list_node_t*>   _tail;
-    std::atomic<list_node_t*>   _free_list_head;
-    std::array<char, 64>	    _padding2;
-    std::atomic<list_node_t*>   _in_progress_tail;
+    std::atomic<list_node_t*> _in_progress_head;
+    std::atomic<list_node_t*> _head;
+    std::atomic<list_node_t*> _free_list_tail;
+    std::array<char, 64> _padding1;
+    std::atomic<list_node_t*> _tail;
+    std::atomic<list_node_t*> _free_list_head;
+    std::array<char, 64> _padding2;
+    std::atomic<list_node_t*> _in_progress_tail;
 };
 }//namespace bk_conq
 
